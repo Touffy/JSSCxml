@@ -119,9 +119,14 @@ SCxml.prototype={
 		this.dom=dom
 		this.validate()
 		
+		// interpret top-level <datamodel> if present
+		var d=dom.querySelector("scxml > datamodel")
+		if(d) this.execute(d)
+		
 		this.running=true
 		console.log("The interpreter for "+this.name+" is now ready.")
-				
+		
+		var init
 		// find initial state
 		if(dom.documentElement.hasAttribute("initial"))
 		{
@@ -195,16 +200,19 @@ SCxml.prototype={
 
 	// wrapper for eval, to handle expr and similar attributes
 	// that need to be evaluated as ECMAScript
-	expr: function(s)
+	expr: function(s,el)
 	{
 		// TODO: check that the expr doesn't do horrible stuff
 		
-		with(this.datamodel){ return eval(s) }
+		try{ with(this.datamodel){ return eval(s) } }
+		catch(e){ this.internalQueue.push(new SCxml.Event("error.execution",el))}
 	},
 	
 	// handles executable content (only <raise> and <log> at this point)
 	execute: function (element)
 	{
+		var value=element.getAttribute("expr")
+		var c=element.firstElementChild
 		switch(element.tagName)
 		{
 		case "raise":
@@ -212,16 +220,47 @@ SCxml.prototype={
 				element.getAttribute("event"), element))
 			break
 		case "log":
-			console.log(element.getAttribute("label")+"="
-				+this.expr(element.getAttribute("expr")))
+			console.log(element.getAttribute("label")+" = "
+				+this.expr(value,element))
 			break
-		
-		default:
-			for(var i=0; i<element.childNodes.length; i++)
+		case "data":
+			var id=element.getAttribute("id")
+			if(value)
+				this.datamodel[id]=this.expr(value)
+			else if(value=element.getAttribute("src"))
+				this.datamodel[id]=undefined
+				// TODO: fetch the data
+			else
+				this.datamodel[id]=element.childNodes
+			break
+		case "assign":
+			var loc=element.getAttribute("location")
+			if(!(loc in this.datamodel))
+				throw this.name+"'s datamodel doesn't have location "+loc
+			if(value) this.datamodel[loc]=this.expr(value,element)
+			else this.datamodel[loc]=element.childNodes
+			break
+		case "if":
+			var cond=this.expr(element.getAttribute("cond"))
+			while(!cond && c)
 			{
-				var c=element.childNodes[i]
-				if(c.nodeType!=1) continue
+				if(c.tagName=="else") cond=true
+				if(c.tagName=="elseif") cond=this.expr(c.getAttribute("cond"))
+				c=c.nextElementSibling
+			}
+			while(c)
+			{
+				if(c.tagName=="else" || c.tagName=="elseif") break
 				this.execute(c)
+				c=c.nextElementSibling
+			}
+			break
+						
+		default:
+			while(c)
+			{
+				this.execute(c)
+				c=c.nextElementSibling
 			}
 		}
 	},
