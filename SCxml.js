@@ -162,7 +162,8 @@ SCxml.prototype={
 		
 		var onentry=this.dom.querySelectorAll("#"+id+" > onentry")
 		for(var i=0; i<onentry.length; i++)
-			this.execute(onentry[i])
+			try{this.execute(onentry[i])}
+			catch(err){continue}
 		
 		if(state.tagName=="final")
 		{
@@ -195,7 +196,8 @@ SCxml.prototype={
 		
 		var onexit=this.dom.querySelectorAll("#"+id+" > onexit")
 		for(var i=0; i<onexit.length; i++)
-			this.execute(onexit[i])
+			try{this.execute(onexit[i])}
+			catch(err){continue}
 	},
 
 	// wrapper for eval, to handle expr and similar attributes
@@ -205,7 +207,10 @@ SCxml.prototype={
 		// TODO: check that the expr doesn't do horrible stuff
 		
 		try{ with(this.datamodel){ return eval(s) } }
-		catch(e){ this.internalQueue.push(new SCxml.Event("error.execution",el))}
+		catch(e){
+			this.internalQueue.push(new SCxml.Event("error.execution",el))
+			throw e
+		}
 	},
 	
 	// handles executable content (only <raise> and <log> at this point)
@@ -225,20 +230,21 @@ SCxml.prototype={
 			break
 		case "data":
 			var id=element.getAttribute("id")
-			if(value)
-				this.datamodel[id]=this.expr(value)
+			if(element.hasAttribute("expr"))
+				this.datamodel[id]=this.expr(value,element)
 			else if(value=element.getAttribute("src"))
 				this.datamodel[id]=undefined
 				// TODO: fetch the data
-			else
-				this.datamodel[id]=element.childNodes
+			else if(element.childElementCount)
+				this.datamodel[id]=xml2JS(element.childNodes)
+			else this.datamodel[id]=undefined
 			break
 		case "assign":
 			var loc=element.getAttribute("location")
 			if(!(loc in this.datamodel))
 				throw this.name+"'s datamodel doesn't have location "+loc
 			if(value) this.datamodel[loc]=this.expr(value,element)
-			else this.datamodel[loc]=element.childNodes
+			else this.datamodel[loc]=xml2JS(element.childNodes)
 			break
 		case "if":
 			var cond=this.expr(element.getAttribute("cond"))
@@ -255,7 +261,27 @@ SCxml.prototype={
 				c=c.nextElementSibling
 			}
 			break
-						
+		case "foreach":
+			var a=this.expr(element.getAttribute("array"))
+			var v=element.getAttribute("item")
+			var i=element.getAttribute("index")
+			if(!(a instanceof Object || "string"==typeof a)
+			|| !/^(\$|[^\W\d])[\w$]*$/.test(i)
+			|| !/^(\$|[^\W\d])[\w$]*$/.test(v))
+			{
+				this.internalQueue.push(
+					new SCxml.Event("error.execution",element))
+				throw "invalid item, index or array (see http://www.w3.org/TR/scxml/#foreach)"
+			}
+			for(var k in a)
+			{
+				this.datamodel[i]=k
+				this.datamodel[v]=a[k]
+				for(c=element.firstElementChild; c; c=c.nextElementSibling)
+					this.execute(c)
+			}
+			break
+			
 		default:
 			while(c)
 			{
@@ -307,13 +333,13 @@ SCxml.prototype={
 		
 		// if we reach here, no transition could be used
 		console.log(this.name+": macrostep completed.")
+		this.stable=true
 	},
 	
 	// try to follow a transition, after exiting the source state
 	takeTransition: function(trans)
 	{
 		var id=trans.getAttribute("target")
-		console.log("transition to "+id)
 		this.exitState(trans.parentNode)
 		
 		var state=this.dom.getElementById(id)
@@ -326,3 +352,12 @@ SCxml.prototype={
 
 SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel',
 	initial: 'initial', 'final': 'final'}
+SCxml.BREAK="__BREAK__"
+
+// generic utility to parse XML into equivalent JSON
+function xml2JS(nodes)
+{
+	// TODO
+	return {}
+}
+
