@@ -48,6 +48,18 @@ SCxml.Event=function SCxmlEvent(name, src)
 }
 SCxml.Event.prototype.toString=function ()
 { return "SCxmlEvent("+this.name+")" }
+SCxml.Event.prototype.match=function (t)
+// matches transitions and events, e.g. "user.*" matches "user.login"
+// the argument is an actual <transtion> element
+{
+	pattern=t.getAttribute("event").split(".")
+	event=this.name.split(".")
+	if(pattern.length>event.length) return false
+	for(var i=0; i<pattern.length; i++)
+		if(pattern[i]!="*" && pattern[i]!=event[i]) return false
+	return true
+}
+
 
 /*
 Instantiates an SCxml() for each <scxml> in the HTML document,
@@ -59,18 +71,6 @@ SCxml.parseSCXMLTags=function ()
 	var tags=document.getElementsByTagName("scxml")
 	for(var i=0; i<tags.length; i++)
 		tags[i].interpreter=new SCxml(tags[i].getAttribute("src"))
-}
-
-// matches transitions and events, e.g. "user.*" matches "user.login"
-// the first argument is an actual <transtion> element
-SCxml.matchEvent=function (t, event)
-{
-	pattern=t.getAttribute("event").split(".")
-	event=event.split(".")
-	if(pattern.length>event.length) return false
-	for(var i=0; i<pattern.length; i++)
-		if(pattern[i]!="*" && pattern[i]!=event[i]) return false
-	return true
 }
 
 SCxml.prototype={
@@ -234,9 +234,8 @@ SCxml.prototype={
 		function filter(e)
 		{
 			if(e.nodeType!=1 || e.tagName!="transition") return false
-			if(event)
-				return e.hasAttribute("event") && SCxml.matchEvent(e,event)
-			else return !cs[c].hasAttribute("event")
+			if(event) return e.hasAttribute("event") && event.match(e)
+			else return !e.hasAttribute("event")
 		}
 		var trans=[]
 		for(var s in this.configuration)
@@ -261,7 +260,7 @@ SCxml.prototype={
 		var event
 		while(event=this.internalQueue.shift())
 		{
-			trans=this.selectTransitions(event.name)
+			trans=this.selectTransitions(event)
 			for(t in trans) if(!trans[t].hasAttribute("cond")
 			|| this.expr(trans[t].getAttribute("cond")))
 				return this.takeTransition(trans[t])
