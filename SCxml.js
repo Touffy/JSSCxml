@@ -98,6 +98,12 @@ SCxml.prototype={
 			&& getAttribute("datamodel") != "ecmascript")
 				throw "'"+getAttribute("datamodel")+"' datamodel in"
 				+ this.dom.documentURI +" is not supported by JSSCxml"
+			if(hasAttribute("binding")
+			&& getAttribute("binding") != "early"
+			&& getAttribute("binding") != "late")
+				throw "binding='"+getAttribute("binding")+"' in"
+				+ this.dom.documentURI +" is not valid"
+			this.lateBinding=(getAttribute("binding")=="late")
 		}
 		// use just the filename for messages, URI can be quite long
 		this.name=this.dom.documentURI.match(/[^/]+\.(?:sc)?xml/)[0]
@@ -118,10 +124,26 @@ SCxml.prototype={
 	{
 		this.dom=dom
 		this.validate()
+
+
+		var lb=this.lateBinding // just temporarily forget this
+		this.lateBinding=true	// to let execute() do its job
 		
 		// interpret top-level <datamodel> if present
 		var d=dom.querySelector("scxml > datamodel")
-		if(d) this.execute(d)
+		if(d) try{this.execute(d)} catch(err){}
+
+		// interpret other <datamodel>s, but do not assign if binding="late"
+		d=dom.querySelectorAll("scxml > * datamodel")
+		for(var i=0; i<d.length; i++)
+		{
+			if(lb)
+				try{this.declare(d[i])} catch(err){throw err}
+			else
+				try{this.execute(d[i])} catch(err){throw err}
+		}
+		// now restore lateBinding
+		this.lateBinding=lb
 		
 		this.running=true
 		console.log("The interpreter for "+this.name+" is now ready.")
@@ -137,9 +159,18 @@ SCxml.prototype={
 		}
 		else
 			init=dom.querySelector("scxml > *[initial]")
-				|| dom.documentElement.firstElementChild
+				|| this.firstState(dom.documentElement)
 		// and... enter !
+		if(!init) throw this.name + " has no suitable initial state."
 		this.enterState( init )
+	},
+	
+	firstState: function(parent)
+	{
+		var state=parent.firstElementChild
+		while(state && !(state.tagName in SCxml.STATE_ELEMENTS))
+			state=state.nextElementSibling
+		return state
 	},
 	
 	// add an event and its ancestors to the configuration,
@@ -213,7 +244,23 @@ SCxml.prototype={
 		}
 	},
 	
-	// handles executable content (only <raise> and <log> at this point)
+	// just declares datamodel variables as undefined
+	declare: function (element)
+	{
+		var c=element.firstElementChild
+		if(element.tagName=="data")
+		{
+			var id=element.getAttribute("id")
+			this.datamodel[id]=undefined
+		}
+		else while(c)
+		{
+			this.declare(c)
+			c=c.nextElementSibling
+		}
+	},
+	
+	// handles executable content
 	execute: function (element)
 	{
 		var value=element.getAttribute("expr")
@@ -229,7 +276,11 @@ SCxml.prototype={
 				+this.expr(value,element))
 			break
 		case "data":
+			if(!this.lateBinding) break // do not reinitialize again
 			var id=element.getAttribute("id")
+			// create the variable first, so it's "declared"
+			// even if the assignment part fails or doesn't occur
+			this.datamodel[id]=undefined
 			if(element.hasAttribute("expr"))
 				this.datamodel[id]=this.expr(value,element)
 			else if(value=element.getAttribute("src"))
@@ -237,7 +288,6 @@ SCxml.prototype={
 				// TODO: fetch the data
 			else if(element.childElementCount)
 				this.datamodel[id]=xml2JS(element.childNodes)
-			else this.datamodel[id]=undefined
 			break
 		case "assign":
 			var loc=element.getAttribute("location")
@@ -275,11 +325,14 @@ SCxml.prototype={
 			}
 			for(var k in a)
 			{
-				this.datamodel[i]=k
-				this.datamodel[v]=a[k]
+				if(i) this.datamodel[i]=k
+				if(v) this.datamodel[v]=a[k]
 				for(c=element.firstElementChild; c; c=c.nextElementSibling)
 					this.execute(c)
 			}
+			break
+		case "script":
+			this.expr(element.textContent,element)
 			break
 			
 		default:
