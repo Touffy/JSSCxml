@@ -129,9 +129,14 @@ SCxml.prototype={
 		var lb=this.lateBinding // just temporarily forget this
 		this.lateBinding=true	// to let execute() do its job
 		
-		// interpret top-level <datamodel> if present
+		// interpret top-level <datamodel> and scripts if present
 		var d=dom.querySelector("scxml > datamodel")
 		if(d) try{this.execute(d)} catch(err){}
+
+		d=dom.querySelectorAll("scxml > script")
+		for(var i=0; i<d.length; i++)
+			try{this.expr(d[i].textContent,d[i])} catch(err){continue}
+
 
 		// interpret other <datamodel>s, but do not assign if binding="late"
 		d=dom.querySelectorAll("scxml > * datamodel")
@@ -260,6 +265,8 @@ SCxml.prototype={
 		}
 	},
 	
+	log: console.log,	// easy to override later
+	
 	// handles executable content
 	execute: function (element)
 	{
@@ -272,7 +279,7 @@ SCxml.prototype={
 				element.getAttribute("event"), element))
 			break
 		case "log":
-			console.log(element.getAttribute("label")+" = "
+			this.log(element.getAttribute("label")+" = "
 				+this.expr(value,element))
 			break
 		case "data":
@@ -291,8 +298,11 @@ SCxml.prototype={
 			break
 		case "assign":
 			var loc=element.getAttribute("location")
-			if(!(loc in this.datamodel))
+			if(!(loc in this.datamodel)){
+				this.internalQueue.push(
+						new SCxml.Event("error.execution",element))
 				throw this.name+"'s datamodel doesn't have location "+loc
+			}
 			if(value) this.datamodel[loc]=this.expr(value,element)
 			else this.datamodel[loc]=xml2JS(element.childNodes)
 			break
@@ -370,18 +380,22 @@ SCxml.prototype={
 	{
 		// first try eventless transition
 		var trans=this.selectTransitions()
-		for(t in trans) if(!trans[t].hasAttribute("cond")
-		|| this.expr(trans[t].getAttribute("cond")))
-			return this.takeTransition(trans[t])
+		for(t in trans) try{
+			if(!trans[t].hasAttribute("cond")
+			|| this.expr(trans[t].getAttribute("cond")))
+				return this.takeTransition(trans[t])
+			} catch(err) {continue}
 		
 		// if none is enabled, consume internal events
 		var event
 		while(event=this.internalQueue.shift())
 		{
 			trans=this.selectTransitions(event)
-			for(t in trans) if(!trans[t].hasAttribute("cond")
-			|| this.expr(trans[t].getAttribute("cond")))
-				return this.takeTransition(trans[t])
+			for(t in trans) try{
+				if(!trans[t].hasAttribute("cond")
+				|| this.expr(trans[t].getAttribute("cond")))
+					return this.takeTransition(trans[t])
+			} catch(err) {continue}
 		}
 		
 		// if we reach here, no transition could be used

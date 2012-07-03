@@ -9,6 +9,21 @@
 	
 	<style>
 scxml{ display: none; }
+div p{
+	padding: 1pt;
+	border: 1px solid silver;
+	margin: 0.2em;
+}
+span{
+	color: #0d6437;
+}
+span:after{
+	content: ":";
+}
+output{
+	margin-left: 1em;
+	font-family: monospace;
+}
 	</style>
 </head>
 <body>
@@ -18,8 +33,43 @@ scxml{ display: none; }
 <scxml src="w3c_tests/test149.scxml"></scxml>
 
 <scxml src="w3c_tests/test152.scxml"></scxml>
+<scxml src="w3c_tests/test153.scxml"></scxml>
+<scxml src="w3c_tests/test154.scxml"></scxml>
+<scxml src="w3c_tests/test155.scxml"></scxml>
+<scxml src="w3c_tests/test156.scxml"></scxml>
+<scxml src="w3c_tests/test158.scxml"></scxml>
+
+<!-- this one passes because JSSCxml is not validating SCXML anyway,
+	and won't even when it has a strict mode -->
+<scxml src="w3c_tests/test266.scxml"></scxml>
+<scxml src="w3c_tests/test277.scxml"></scxml>
+<scxml src="w3c_tests/test278.scxml"></scxml>
+<scxml src="w3c_tests/test279.scxml"></scxml>
+<scxml src="w3c_tests/test280.scxml"></scxml>
+
+<scxml src="w3c_tests/test286.scxml"></scxml>
+<scxml src="w3c_tests/test287.scxml"></scxml>
+
+<scxml src="w3c_tests/test302.scxml"></scxml>
+<scxml src="w3c_tests/test303.scxml"></scxml>
+<scxml src="w3c_tests/test304.scxml"></scxml>
+
+<scxml src="w3c_tests/test309.scxml"></scxml>
+
+<p>Log messages from the SCs:
+<div></div>
 
 <script>
+
+logdiv=document.getElementsByTagName("div")[0]
+
+SCxml.prototype.log=function (message){
+	with(logdiv.appendChild(document.createElement("p")))
+	{
+		appendChild(document.createElement("span")).textContent=this.name
+		appendChild(document.createElement("output")).value=message
+	}
+}
 
 SCxml.parseSCXMLTags()
 
