@@ -378,9 +378,8 @@ SCxml.prototype={
 		}
 	},
 	
-	// returns a list of all transitions for an event (or eventless)
-	// in document order for each state, but the configuration
-	// itself is not yet a sorted structure
+	// returns a list of all transitions for an event (or eventless),
+	// in document order
 	selectTransitions: function(event)
 	{
 		function filter(e)
@@ -446,6 +445,7 @@ SCxml.prototype={
 		this.enterState(state)
 	},
 	
+	// returns the configuration, ordered, as an array
 	sortedConfiguration: function ()
 	{
 		var conf=[]
