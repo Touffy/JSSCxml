@@ -162,18 +162,7 @@ SCxml.prototype={
 		this.running=true
 		console.log("The interpreter for "+this.name+" is now ready.")
 		
-		var init
-		// find initial state
-		if(dom.documentElement.hasAttribute("initial"))
-		{
-			init=dom.getElementById(dom.documentElement.getAttribute("initial"))
-			if(!init) throw "initial state with id='"
-				+dom.documentElement.getAttribute("initial")
-				+"' not found in "+this.name
-		}
-		else
-			init=dom.querySelector("scxml > *[initial]")
-				|| this.firstState(dom.documentElement)
+		var init=this.firstState(dom.documentElement)
 		// and... enter !
 		if(!init) throw this.name + " has no suitable initial state."
 		this.enterState( init )
@@ -181,7 +170,20 @@ SCxml.prototype={
 	
 	firstState: function(parent)
 	{
-		var state=parent.firstElementChild
+		var id, state
+		if(parent.hasAttribute("initial"))
+		{
+			state=this.dom.getElementById(id=parent.getAttribute("initial"))
+			if(!state) throw "initial state with id='"
+				+id+"' not found in "+this.name
+			return state
+		}
+
+		if(state=this.dom.querySelector("#"+parent.getAttribute("id")
+			+" > *[initial]"))
+			return state
+		
+		state=parent.firstElementChild
 		while(state && !(state.tagName in SCxml.STATE_ELEMENTS))
 			state=state.nextElementSibling
 		return state
@@ -201,28 +203,29 @@ SCxml.prototype={
 		if(id in this.configuration) return
 		this.configuration[id]=(state)
 		
+		console.log("entering "+id)
+		
 		// first add ancestors to the configuration
 		if(state.parentNode.tagName != "scxml")
 			this.enterState(state.parentNode,true)
-		
-		if(state.tagName == "parallel")
-		{
-			var c=state.firstElementChild
-			while(c) if(c.tagName in SCxml.STATE_ELEMENTS)
-			{
-				this.enterState(c,true)
-				c=c.nextElementSibling
-			}
-		}
-		
+				
 		// now add this one
 		var onentry=this.dom.querySelectorAll("#"+id+" > onentry")
 		for(var i=0; i<onentry.length; i++)
 			try{this.execute(onentry[i])}
 			catch(err){continue}
 		
-		if(state.tagName=="final")
+		switch(state.tagName)
 		{
+		case "parallel":
+			var c=state.firstElementChild
+			while(c) if(c.tagName in SCxml.STATE_ELEMENTS)
+			{
+				this.enterState(c,true)
+				c=c.nextElementSibling
+			}
+			break
+		case "final":
 			if(state.parentNode==this.dom.documentElement)
 			{
 				this.running=false
@@ -233,20 +236,26 @@ SCxml.prototype={
 			else
 				this.internalQueue.push(new SCxml.Event("done.state."
 				+state.parentNode.getAttribute("id"), state))
+		default:
+			var first
+			if(first = this.firstState(state))
+				this.enterState(first,true)
 		}
+
 		if(!rec) this.mainEventLoop()
 	},
 	// remove a state and its ancestors from the configuration,
 	// and don't forget to run the onexit blocks
-	exitState: function (state)
+	exitState: function (state, common)
 	{
 		if(!(state.tagName in SCxml.STATE_ELEMENTS))
 			throw state +" is not a state element."
 		
-		if(state.parentNode.tagName != "scxml")
+		if(state.parentNode!=common)
 			this.exitState(state.parentNode)
 		
 		var id=state.getAttribute('id')
+		console.log("exiting "+id)
 		
 		delete this.configuration[id]
 		
@@ -309,7 +318,7 @@ SCxml.prototype={
 			// even if the assignment part fails or doesn't occur
 			this.datamodel[id]=undefined
 			if(element.hasAttribute("expr"))
-				this.datamodel[id]=this.expr(value,element)
+				this.expr(id+" = "+value, element)
 			else if(value=element.getAttribute("src"))
 			{
 				// TODO: fetch the data
@@ -322,7 +331,7 @@ SCxml.prototype={
 						new SCxml.Event("error.execution",element))
 				throw this.name+"'s datamodel doesn't have location "+loc
 			}
-			if(value) this.datamodel[loc]=this.expr(value,element)
+			if(value) this.expr(loc+" = "+value, element)
 			break
 		case "if":
 			var cond=this.expr(element.getAttribute("cond"))
@@ -409,6 +418,7 @@ SCxml.prototype={
 		while(event=this.internalQueue.shift())
 		{
 			trans=this.selectTransitions(event)
+			console.log("consumed event "+event.name)
 			for(t in trans) try{
 				if(!trans[t].hasAttribute("cond")
 				|| this.expr(trans[t].getAttribute("cond")))
@@ -425,9 +435,16 @@ SCxml.prototype={
 	takeTransition: function(trans)
 	{
 		var id=trans.getAttribute("target")
-		this.exitState(trans.parentNode)
-		
+		console.log("transition to "+id)
 		var state=this.dom.getElementById(id)
+		// find the closest common parent
+		var parent=trans.parentNode
+		while((parent=parent.parentNode).tagName!="scxml")
+			if(this.dom.querySelector("#"+ parent.getAttribute('id') +" > #"+id))
+				break
+
+		this.exitState(trans.parentNode, parent)
+		
 		if(!state) throw this.name+": transition target id='"+id+"' not found."
 		this.enterState(state)
 	}
