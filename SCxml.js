@@ -16,7 +16,6 @@ function SCxml(source)
 	this.internalQueue=[]
 	this.externalQueue=[]
 	
-	// not (properly) ordered yet
 	this.configuration={}
 	this.datamodel=new SCxml.Datamodel(this)
 	
@@ -44,6 +43,7 @@ SCxml.Datamodel=function SCxmlDatamodel(sc)
 {
 	this.In=function In(state){ return state in sc.configuration }
 }
+
 /*
 This is a tiny constructor for SCXML internal events,
 since the browser's built-in DOM Events are not
@@ -203,8 +203,6 @@ SCxml.prototype={
 		if(id in this.configuration) return
 		this.configuration[id]=(state)
 		
-		console.log("entering "+id)
-		
 		// first add ancestors to the configuration
 		if(state.parentNode.tagName != "scxml")
 			this.enterState(state.parentNode,true)
@@ -251,12 +249,11 @@ SCxml.prototype={
 		if(!(state.tagName in SCxml.STATE_ELEMENTS))
 			throw state +" is not a state element."
 		
+		common=common||this.dom.documentElement
 		if(state.parentNode!=common)
 			this.exitState(state.parentNode)
 		
-		var id=state.getAttribute('id')
-		console.log("exiting "+id)
-		
+		var id=state.getAttribute('id')		
 		delete this.configuration[id]
 		
 		var onexit=this.dom.querySelectorAll("#"+id+" > onexit")
@@ -393,10 +390,10 @@ SCxml.prototype={
 			else return !e.hasAttribute("event")
 		}
 		var trans=[]
-		for(var s in this.configuration)
-			if(this.configuration[s] instanceof Element)
+		var conf=this.sortedConfiguration()
+		for(var i=0; i<conf.length; i++)
 		{
-			var cs=this.configuration[s].childNodes
+			var cs=conf[i].childNodes
 			for(var c=0; c<cs.length; c++) if(filter(cs[c]))
 				trans.push(cs[c])
 		}
@@ -418,7 +415,6 @@ SCxml.prototype={
 		while(event=this.internalQueue.shift())
 		{
 			trans=this.selectTransitions(event)
-			console.log("consumed event "+event.name)
 			for(t in trans) try{
 				if(!trans[t].hasAttribute("cond")
 				|| this.expr(trans[t].getAttribute("cond")))
@@ -435,10 +431,11 @@ SCxml.prototype={
 	takeTransition: function(trans)
 	{
 		var id=trans.getAttribute("target")
-		console.log("transition to "+id)
 		var state=this.dom.getElementById(id)
-		// find the closest common parent
 		var parent=trans.parentNode
+		console.log("transition to "+id+" from "+parent.getAttribute("id"))
+
+		// find the closest common parent
 		while((parent=parent.parentNode).tagName!="scxml")
 			if(this.dom.querySelector("#"+ parent.getAttribute('id') +" > #"+id))
 				break
@@ -447,6 +444,34 @@ SCxml.prototype={
 		
 		if(!state) throw this.name+": transition target id='"+id+"' not found."
 		this.enterState(state)
+	},
+	
+	sortedConfiguration: function ()
+	{
+		var conf=[]
+		var leaves={}
+		var c
+		for(var i in this.configuration)
+			leaves[i]=this.configuration[i]
+		
+		for(i in this.configuration) 
+		if(this.configuration[i].parentNode.nodeName!="scxml")
+			delete leaves[this.configuration[i].parentNode.getAttribute('id')]
+		
+		for(i in leaves)
+		{
+			conf.push(c=leaves[i])
+			c.visited=true
+			while((c=c.parentNode).nodeName!="scxml")
+				if(!c.visited)
+				{
+					c.visited=true
+					conf.push(c)
+				}
+		}
+		for(var i in this.configuration)
+			this.configuration[i].visited=false
+		return conf
 	}
 	
 }
