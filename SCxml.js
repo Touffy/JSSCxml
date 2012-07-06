@@ -18,7 +18,7 @@ function SCxml(source)
 	
 	// not (properly) ordered yet
 	this.configuration={}
-	this.datamodel={}
+	this.datamodel=new SCxml.Datamodel(this)
 	
 	this.running=false
 	this.stable=false
@@ -35,6 +35,15 @@ function SCxml(source)
 	}
 }
 
+/*
+This is necessary for the In method to work flawlessly.
+By using a closure, I let In() access the configuration
+without adding the name 'configuration' to the datamodel.
+*/
+SCxml.Datamodel=function SCxmlDatamodel(sc)
+{
+	this.In=function In(state){ return state in sc.configuration }
+}
 /*
 This is a tiny constructor for SCXML internal events,
 since the browser's built-in DOM Events are not
@@ -188,14 +197,25 @@ SCxml.prototype={
 		if(!state.hasAttribute('id'))
 			state.setAttribute('id', this.uniqId())
 
+		var id=state.getAttribute('id')
+		if(id in this.configuration) return
+		this.configuration[id]=(state)
+		
 		// first add ancestors to the configuration
 		if(state.parentNode.tagName != "scxml")
 			this.enterState(state.parentNode,true)
 		
-		// now add this one
-		var id=state.getAttribute('id')
-		this.configuration[id]=(state)
+		if(state.tagName == "parallel")
+		{
+			var c=state.firstElementChild
+			while(c) if(c.tagName in SCxml.STATE_ELEMENTS)
+			{
+				this.enterState(c,true)
+				c=c.nextElementSibling
+			}
+		}
 		
+		// now add this one
 		var onentry=this.dom.querySelectorAll("#"+id+" > onentry")
 		for(var i=0; i<onentry.length; i++)
 			try{this.execute(onentry[i])}
@@ -291,10 +311,9 @@ SCxml.prototype={
 			if(element.hasAttribute("expr"))
 				this.datamodel[id]=this.expr(value,element)
 			else if(value=element.getAttribute("src"))
-				this.datamodel[id]=undefined
+			{
 				// TODO: fetch the data
-			else if(element.childElementCount)
-				this.datamodel[id]=xml2JS(element.childNodes)
+			}
 			break
 		case "assign":
 			var loc=element.getAttribute("location")
@@ -304,7 +323,6 @@ SCxml.prototype={
 				throw this.name+"'s datamodel doesn't have location "+loc
 			}
 			if(value) this.datamodel[loc]=this.expr(value,element)
-			else this.datamodel[loc]=xml2JS(element.childNodes)
 			break
 		case "if":
 			var cond=this.expr(element.getAttribute("cond"))
@@ -416,15 +434,6 @@ SCxml.prototype={
 	
 }
 
-
 SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel',
 	initial: 'initial', 'final': 'final'}
-SCxml.BREAK="__BREAK__"
-
-// generic utility to parse XML into equivalent JSON
-function xml2JS(nodes)
-{
-	// TODO
-	return {}
-}
 
