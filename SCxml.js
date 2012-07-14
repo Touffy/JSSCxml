@@ -17,6 +17,7 @@ function SCxml(source)
 	this.externalQueue=[]
 	
 	this.configuration={}
+	this.sid="jsscxml"+ ++SCxml.sessionCount
 	this.datamodel=new SCxml.Datamodel(this)
 	
 	this.running=false
@@ -34,6 +35,13 @@ function SCxml(source)
 	}
 }
 
+SCxml.sessionCount=0
+
+SCxml.EventProcessors={
+	SCXML:{},
+	DOM:{},
+	basichttp:{}
+}
 /*
 This is necessary for the In method to work flawlessly.
 By using a closure, I let In() access the configuration
@@ -42,18 +50,40 @@ without adding the name 'configuration' to the datamodel.
 SCxml.Datamodel=function SCxmlDatamodel(sc)
 {
 	this.In=function In(state){ return state in sc.configuration }
+	this._sessionid=sc.sid
+}
+SCxml.Datamodel.prototype={
+	_event:undefined,
+	_name:"",
+	_ioprocessors:SCxml.EventProcessors,
+	_x:{},
+	
+	// these are here to prevent direct HTML DOM access from SCXML scripts
+	
+	document:undefined,
+	window:undefined,
+	history:undefined,
+	navigator:undefined
 }
 
 /*
-This is a tiny constructor for SCXML internal events,
+This is a constructor for SCXML events,
 since the browser's built-in DOM Events are not
 ideally suited for that role.
 */
-SCxml.Event=function SCxmlEvent(name, src)
+SCxml.Event=function SCxmlEvent(name, src, external,
+	sendid, origin, origintype, invokeid, data)
 {
 	this.name=name
-	this.srcElement=src
+	this.srcElement=src||null
 	this.timestamp=new Date().getTime()
+	this.type=external?"external":"internal"
+	
+	this.sendid=sendid||""
+	this.origin=origin||""
+	this.origintype=origintype||""
+	this.invokeid=invokeid||""
+	this.data=data
 }
 SCxml.Event.prototype.toString=function ()
 { return "SCxmlEvent("+this.name+")" }
@@ -113,6 +143,7 @@ SCxml.prototype={
 				throw "binding='"+getAttribute("binding")+"' in"
 				+ this.dom.documentURI +" is not valid"
 			this.lateBinding=(getAttribute("binding")=="late")
+			this.datamodel._name=getAttribute("name")
 		}
 		// use just the filename for messages, URI can be quite long
 		this.name=this.dom.documentURI.match(/[^/]+\.(?:sc)?xml/)[0]
@@ -413,6 +444,7 @@ SCxml.prototype={
 		var event
 		while(event=this.internalQueue.shift())
 		{
+			this.datamodel._event=event
 			trans=this.selectTransitions(event)
 			for(t in trans) try{
 				if(!trans[t].hasAttribute("cond")
@@ -440,6 +472,9 @@ SCxml.prototype={
 				break
 
 		this.exitState(trans.parentNode, parent)
+		
+		// now, between exit and entry, run the executable content if present
+		this.execute(trans)
 		
 		if(!state) throw this.name+": transition target id='"+id+"' not found."
 		this.enterState(state)
@@ -478,4 +513,3 @@ SCxml.prototype={
 
 SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel',
 	initial: 'initial', 'final': 'final'}
-
