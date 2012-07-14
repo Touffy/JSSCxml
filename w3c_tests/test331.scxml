@@ -33,7 +33,7 @@
    </state>
    
 <state id="s3">
-  <transition cond="Var2=='platform'" target="s4"/>
+  <transition cond="Var1=='platform'" target="s4"/>
   <transition target="fail"/>
   </state>
    
