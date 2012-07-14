@@ -17,8 +17,9 @@ function SCxml(source)
 	this.externalQueue=[]
 	
 	this.configuration={}
-	this.sid="jsscxml"+ ++SCxml.sessionCount
+	this.sid=++SCxml.sessionCount
 	this.datamodel=new SCxml.Datamodel(this)
+	SCxml.sessions[this.sid]=this
 	
 	this.running=false
 	this.stable=false
@@ -35,12 +36,13 @@ function SCxml(source)
 	}
 }
 
+SCxml.sessions=[]
 SCxml.sessionCount=0
 
 SCxml.EventProcessors={
-	SCXML:{},
-	DOM:{},
-	basichttp:{}
+	SCXML:{name:"http://www.w3.org/TR/scxml/#SCXMLEventProcessor"},
+	basichttp:{name:"http://www.w3.org/TR/scxml/#BasicHTTPEventProcessor"},
+	DOM:{name:"http://www.w3.org/TR/scxml/#DOMEventProcessor"}
 }
 /*
 This is necessary for the In method to work flawlessly.
@@ -65,40 +67,6 @@ SCxml.Datamodel.prototype={
 	history:undefined,
 	navigator:undefined
 }
-
-/*
-This is a constructor for SCXML events,
-since the browser's built-in DOM Events are not
-ideally suited for that role.
-*/
-SCxml.Event=function SCxmlEvent(name, src, external,
-	sendid, origin, origintype, invokeid, data)
-{
-	this.name=name
-	this.srcElement=src||null
-	this.timestamp=new Date().getTime()
-	this.type=external?"external":"internal"
-	
-	this.sendid=sendid||""
-	this.origin=origin||""
-	this.origintype=origintype||""
-	this.invokeid=invokeid||""
-	this.data=data
-}
-SCxml.Event.prototype.toString=function ()
-{ return "SCxmlEvent("+this.name+")" }
-SCxml.Event.prototype.match=function (t)
-// matches transitions and events, e.g. "user.*" matches "user.login"
-// the argument is an actual <transtion> element
-{
-	pattern=t.getAttribute("event").split(".")
-	event=this.name.split(".")
-	if(pattern.length>event.length) return false
-	for(var i=0; i<pattern.length; i++)
-		if(pattern[i]!="*" && pattern[i]!=event[i]) return false
-	return true
-}
-
 
 /*
 Instantiates an SCxml() for each <scxml> in the HTML document,
@@ -260,11 +228,12 @@ SCxml.prototype={
 				this.running=false
 				this.stable=true
 				console.log(this.name+" reached top-level final state: Terminated.")
+				SCxml.sessions[this.sid]=null
 				return
 			}
 			else
 				this.internalQueue.push(new SCxml.Event("done.state."
-				+state.parentNode.getAttribute("id"), state))
+				+state.parentNode.getAttribute("id")))
 		default:
 			var first
 			if(first = this.firstState(state))
@@ -301,7 +270,7 @@ SCxml.prototype={
 		
 		try{ with(this.datamodel){ return eval(s) } }
 		catch(e){
-			this.internalQueue.push(new SCxml.Event("error.execution",el))
+			this.internalQueue.push(new SCxml.Error("error.execution",el,e))
 			throw e
 		}
 	},
@@ -329,11 +298,40 @@ SCxml.prototype={
 	{
 		var value=element.getAttribute("expr")
 		var c=element.firstElementChild
+		var loc, event
 		switch(element.tagName)
 		{
 		case "raise":
-			this.internalQueue.push(new SCxml.Event(
-				element.getAttribute("event"), element))
+			event=element.getAttribute("event")
+				||this.expr(element.getAttribute("eventexpr"))
+			this.internalQueue.push(new SCxml.InternalEvent(event, element))
+			break
+		case "send":
+			var target=element.getAttribute("target")
+				||this.expr(element.getAttribute("targetexpr"))
+				||"#_scxml_"+this.sid
+			event=element.getAttribute("event")
+				||this.expr(element.getAttribute("eventexpr"))
+			var id=element.getAttribute("id")||this.uniqId()
+			if(loc=element.getAttribute("idlocation"))
+				this.expr(loc+'="'+id+'"')
+			var type=element.getAttribute("type")
+				||this.expr(element.getAttribute("typeexpr"))
+				||SCxml.EventProcessors.SCXML.name
+			var delay=element.getAttribute("delay")
+				||this.expr(element.getAttribute("delayexpr"))
+				||0
+
+			if(target=="#_internal")
+			{
+				this.internalQueue.push(new SCxml.InternalEvent(event, element))
+				break
+			}
+			
+			var data="" // not implemented yet
+			var e=new SCxml.ExternalEvent(event, id, this.sid, "", "", data)
+			if(delay) window.setTimeout(SCxml.send, delay, target, e)
+			else SCxml.send(target, e)
 			break
 		case "log":
 			this.log(element.getAttribute("label")+" = "
@@ -353,10 +351,10 @@ SCxml.prototype={
 			}
 			break
 		case "assign":
-			var loc=element.getAttribute("location")
+			loc=element.getAttribute("location")
 			if(!(loc in this.datamodel)){
 				this.internalQueue.push(
-						new SCxml.Event("error.execution",element))
+						new SCxml.Error("error.execution",element))
 				throw this.name+"'s datamodel doesn't have location "+loc
 			}
 			if(value) this.expr(loc+" = "+value, element)
@@ -385,7 +383,7 @@ SCxml.prototype={
 			|| !/^(\$|[^\W\d])[\w$]*$/.test(v))
 			{
 				this.internalQueue.push(
-					new SCxml.Event("error.execution",element))
+					new SCxml.Error("error.execution",element))
 				throw "invalid item, index or array (see http://www.w3.org/TR/scxml/#foreach)"
 			}
 			for(var k in a)
@@ -456,6 +454,28 @@ SCxml.prototype={
 		// if we reach here, no transition could be used
 		console.log(this.name+": macrostep completed.")
 		this.stable=true
+		this.extEventLoop()
+	},
+
+	extEventLoop: function()
+	{
+		this.stable=false
+		// consume external events
+		var event
+		while(event=this.externalQueue.shift())
+		{
+			this.datamodel._event=event
+			trans=this.selectTransitions(event)
+			for(t in trans) try{
+				if(!trans[t].hasAttribute("cond")
+				|| this.expr(trans[t].getAttribute("cond")))
+					return this.takeTransition(trans[t])
+			} catch(err) {continue}
+		}
+		
+		// if we reach here, no transition could be used
+		this.stable=true
+		console.log(this.name+": waiting for external events.")
 	},
 	
 	// try to follow a transition, after exiting the source state
@@ -507,8 +527,31 @@ SCxml.prototype={
 		for(var i in this.configuration)
 			this.configuration[i].visited=false
 		return conf
+	},
+	
+	// handles external events
+	onEvent:function (event)
+	{
+		if(!this.running)
+			throw this.name+" has terminated and cannot process more events"
+		this.externalQueue.push(event)
+		if(this.stable)
+			this.extEventLoop()
 	}
 	
+}
+
+SCxml.send=function (target, event)
+{
+	console.log("sending a "+event.name+" event to "+target)
+	var sid
+	if((sid=target.match(/^#_scxml_(.+)$/)) && (sid=sid[1]))
+	{
+		if(sid in SCxml.sessions && SCxml.sessions[sid])
+			SCxml.sessions[sid].onEvent(event)
+		else throw "target SCXML session doesn't exist"
+	}
+	else {} // TODO
 }
 
 SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel',
