@@ -17,7 +17,7 @@
    </state>
 
 <state id="s1">
-  <transition conf:varQuoteVal="1=internal" target="s2"/>
+  <transition cond="Var1=='internal'" target="s2"/>
   <transition target="fail"/>
   </state>
    
@@ -33,7 +33,7 @@
    </state>
    
 <state id="s3">
-  <transition conf:varQuoteVal="1=platform" target="s4"/>
+  <transition cond="Var2=='platform'" target="s4"/>
   <transition target="fail"/>
   </state>
    
@@ -49,7 +49,7 @@
    </state>
    
 <state id="s5">
-  <transition conf:varQuoteVal="1=external" target="pass"/>
+  <transition cond="Var1=='external'" target="pass"/>
   <transition target="fail"/>
   </state>
    
