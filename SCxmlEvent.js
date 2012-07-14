@@ -42,18 +42,17 @@ SCxml.Error=function (name, src, err)
 	SCxml.Event.call(this, name)
 	this.srcElement=src||null
 	this.err=err
-	
-//	throw err
+	if(src.tagName=="send")
+		this.sendid=src.getAttribute("id")
 }
 SCxml.Error.prototype=new SCxml.Event()
 SCxml.Error.prototype.constructor=SCxml.Error
 
 
-SCxml.ExternalEvent=function (name, sendid, origin, origintype,
+SCxml.ExternalEvent=function (name, origin, origintype,
 	invokeid, data)
 {
 	SCxml.Event.call(this, name, "external")
-	this.sendid=sendid||""
 	this.origin=origin||""
 	this.origintype=origintype||""
 	this.invokeid=invokeid||""

@@ -312,7 +312,10 @@ SCxml.prototype={
 				||"#_scxml_"+this.sid
 			event=element.getAttribute("event")
 				||this.expr(element.getAttribute("eventexpr"))
-			var id=element.getAttribute("id")||this.uniqId()
+
+			if(!element.hasAttribute('id'))
+				element.setAttribute('id', this.uniqId())
+			var id=element.getAttribute("id")
 			if(loc=element.getAttribute("idlocation"))
 				this.expr(loc+'="'+id+'"')
 			var type=element.getAttribute("type")
@@ -327,9 +330,15 @@ SCxml.prototype={
 				this.internalQueue.push(new SCxml.InternalEvent(event, element))
 				break
 			}
+			if(!target.match(/^#_scxml_./))
+			{
+				this.internalQueue.push(
+					new SCxml.Error("error.execution",element))
+				throw this.name+': unsupported target "'+target+'"'
+			}
 			
 			var data="" // not implemented yet
-			var e=new SCxml.ExternalEvent(event, id, this.sid, "", "", data)
+			var e=new SCxml.ExternalEvent(event, this.sid, "", "", data)
 			if(delay) window.setTimeout(SCxml.send, delay, target, e)
 			else SCxml.send(target, e)
 			break
