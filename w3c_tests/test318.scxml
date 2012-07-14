@@ -20,7 +20,7 @@
    </state>
    
     
-   <final xmlns="http://www.w3.org/2005/07/scxml" id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
-   <final xmlns="http://www.w3.org/2005/07/scxml" id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+   <final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
+   <final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
      
 </scxml>
