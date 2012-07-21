@@ -31,7 +31,7 @@ function SCxml(source)
 	}
 	else
 	{
-		console.log("Fetching "+source+"…")
+		console.debug("Fetching "+source+"…")
 		new XHR(source, this, this.xhrResponse, null, this.xhrFailed)
 	}
 }
@@ -92,7 +92,7 @@ SCxml.prototype={
 		// when an XHR fails: no need to throw another on top
 	},
 	
-	validate: function()
+	validate: function validate()
 	{
 		// TODO: much more validation
 		with(this.dom.documentElement)
@@ -128,7 +128,7 @@ SCxml.prototype={
 	},
 	
 	// get started with the parsed SCXML
-	interpret: function(dom)
+	interpret: function interpret(dom)
 	{
 		this.dom=dom
 		this.validate()
@@ -143,7 +143,7 @@ SCxml.prototype={
 
 		d=dom.querySelectorAll("scxml > script")
 		for(var i=0; i<d.length; i++)
-			try{this.expr(d[i].textContent,d[i])} catch(err){continue}
+			try{this.expr(d[i].textContent,d[i])} catch(err){}
 
 
 		// interpret other <datamodel>s, but do not assign if binding="late"
@@ -151,9 +151,9 @@ SCxml.prototype={
 		for(var i=0; i<d.length; i++)
 		{
 			if(lb)
-				try{this.declare(d[i])} catch(err){throw err}
+				try{this.declare(d[i])} catch(err){}
 			else
-				try{this.execute(d[i])} catch(err){throw err}
+				try{this.execute(d[i])} catch(err){}
 		}
 		// now restore lateBinding
 		this.lateBinding=lb
@@ -167,7 +167,7 @@ SCxml.prototype={
 		this.enterState( init )
 	},
 	
-	firstState: function(parent)
+	firstState: function firstState(parent)
 	{
 		var id, state
 		if(parent.hasAttribute("initial"))
@@ -190,7 +190,7 @@ SCxml.prototype={
 	
 	// add an event and its ancestors to the configuration,
 	// run the onentry stuff then start the event loop
-	enterState: function (state,rec)
+	enterState: function enterState(state,rec)
 	{
 		if(!(state.tagName in SCxml.STATE_ELEMENTS))
 			throw state +" is not a state element."
@@ -244,7 +244,7 @@ SCxml.prototype={
 	},
 	// remove a state and its ancestors from the configuration,
 	// and don't forget to run the onexit blocks
-	exitState: function (state, common)
+	exitState: function exitState(state, common)
 	{
 		if(!(state.tagName in SCxml.STATE_ELEMENTS))
 			throw state +" is not a state element."
@@ -264,19 +264,16 @@ SCxml.prototype={
 
 	// wrapper for eval, to handle expr and similar attributes
 	// that need to be evaluated as ECMAScript
-	expr: function(s,el)
+	expr: function expr(s,el)
 	{
 		// TODO: check that the expr doesn't do horrible stuff
 		
 		try{ with(this.datamodel){ return eval(s) } }
-		catch(e){
-			this.internalQueue.push(new SCxml.Error("error.execution",el,e))
-			throw e
-		}
+		catch(e){ this.error("execution",el,e) }
 	},
 	
 	// just declares datamodel variables as undefined
-	declare: function (element)
+	declare: function declare(element)
 	{
 		var c=element.firstElementChild
 		if(element.tagName=="data")
@@ -293,8 +290,18 @@ SCxml.prototype={
 	
 	log: console.log,	// easy to override later
 	
+	// displays errors nicely in the console,
+	// including the SCXML element that started it
+	// (we can't determine the SCXML line number)
+	error: function(name, src, err){
+		this.internalQueue.push(new SCxml.Error("error."+name, src, err))
+		console.error(err+"\nin SCXML "+this.name+" :")
+		console.error(src)
+		throw(err)
+	},
+	
 	// handles executable content
-	execute: function (element)
+	execute: function execute(element)
 	{
 		var value=element.getAttribute("expr")
 		var c=element.firstElementChild
@@ -331,11 +338,8 @@ SCxml.prototype={
 				break
 			}
 			if(!target.match(/^#_scxml_./))
-			{
-				this.internalQueue.push(
-					new SCxml.Error("error.execution",element))
-				throw this.name+': unsupported target "'+target+'"'
-			}
+				this.error("execution",element,
+					new Error('unsupported target "'+target+'"'))
 			
 			var data="" // not implemented yet
 			var e=new SCxml.ExternalEvent(event, this.sid, "", "", data)
@@ -361,11 +365,16 @@ SCxml.prototype={
 			break
 		case "assign":
 			loc=element.getAttribute("location")
-			if(!(loc in this.datamodel)){
-				this.internalQueue.push(
-						new SCxml.Error("error.execution",element))
-				throw this.name+"'s datamodel doesn't have location "+loc
-			}
+			if(!loc) this.error("syntax",element,new Error(
+				"'loc' attribute required"))
+			// it's not actually possible to ensure loc is declared
+			// somewhere in the datamodel, since loc could be a complex
+			// expression far beyond syntactic analysis, and if the result
+			// is not in datamodel scope we can't prevent default access
+			// to *everything* in global (window) scope.
+			
+			// So this will only throw if the location is not declared at all
+			this.expr("valueOf("+loc+")", element)
 			if(value) this.expr(loc+" = "+value, element)
 			break
 		case "if":
@@ -390,11 +399,7 @@ SCxml.prototype={
 			if(!(a instanceof Object || "string"==typeof a)
 			|| !/^(\$|[^\W\d])[\w$]*$/.test(i)
 			|| !/^(\$|[^\W\d])[\w$]*$/.test(v))
-			{
-				this.internalQueue.push(
-					new SCxml.Error("error.execution",element))
-				throw "invalid item, index or array (see http://www.w3.org/TR/scxml/#foreach)"
-			}
+				this.error("execution",element,"invalid item, index or array")
 			for(var k in a)
 			{
 				if(i) this.datamodel[i]=k
@@ -418,7 +423,7 @@ SCxml.prototype={
 	
 	// returns a list of all transitions for an event (or eventless),
 	// in document order
-	selectTransitions: function(event)
+	selectTransitions: function selectTransitions(event)
 	{
 		function filter(e)
 		{
@@ -437,15 +442,15 @@ SCxml.prototype={
 		return trans
 	},
 	
-	mainEventLoop: function()
+	mainEventLoop: function mainEventLoop()
 	{
 		// first try eventless transition
 		var trans=this.selectTransitions()
 		for(t in trans) try{
 			if(!trans[t].hasAttribute("cond")
-			|| this.expr(trans[t].getAttribute("cond")))
+			|| this.expr(trans[t].getAttribute("cond"),trans[t]))
 				return this.takeTransition(trans[t])
-			} catch(err) {continue}
+			} catch(err) {}
 		
 		// if none is enabled, consume internal events
 		var event
@@ -455,9 +460,9 @@ SCxml.prototype={
 			trans=this.selectTransitions(event)
 			for(t in trans) try{
 				if(!trans[t].hasAttribute("cond")
-				|| this.expr(trans[t].getAttribute("cond")))
+				|| this.expr(trans[t].getAttribute("cond"),trans[t]))
 					return this.takeTransition(trans[t])
-			} catch(err) {continue}
+			} catch(err) {}
 		}
 		
 		// if we reach here, no transition could be used
@@ -466,7 +471,7 @@ SCxml.prototype={
 		this.extEventLoop()
 	},
 
-	extEventLoop: function()
+	extEventLoop: function extEventLoop()
 	{
 		this.stable=false
 		// consume external events
@@ -488,12 +493,12 @@ SCxml.prototype={
 	},
 	
 	// try to follow a transition, after exiting the source state
-	takeTransition: function(trans)
+	takeTransition: function takeTransition(trans)
 	{
 		var id=trans.getAttribute("target")
 		var state=this.dom.getElementById(id)
 		var parent=trans.parentNode
-		console.log("transition to "+id+" from "+parent.getAttribute("id"))
+		console.log(this.name+": "+parent.getAttribute("id")+" → "+id)
 
 		// find the closest common parent
 		while((parent=parent.parentNode).tagName!="scxml")
@@ -510,7 +515,7 @@ SCxml.prototype={
 	},
 	
 	// returns the configuration, ordered, as an array
-	sortedConfiguration: function ()
+	sortedConfiguration: function sortedConfiguration()
 	{
 		var conf=[]
 		var leaves={}
@@ -539,7 +544,7 @@ SCxml.prototype={
 	},
 	
 	// handles external events
-	onEvent:function (event)
+	onEvent:function onEvent(event)
 	{
 		if(!this.running)
 			throw this.name+" has terminated and cannot process more events"
@@ -550,7 +555,7 @@ SCxml.prototype={
 	
 }
 
-SCxml.send=function (target, event)
+SCxml.send=function send(target, event)
 {
 	console.log("sending a "+event.name+" event to "+target)
 	var sid
@@ -564,4 +569,4 @@ SCxml.send=function (target, event)
 }
 
 SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel',
-	initial: 'initial', 'final': 'final'}
+	initial: 'initial', 'final': 'final', history: "history"}
