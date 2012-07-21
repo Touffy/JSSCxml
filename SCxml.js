@@ -31,7 +31,6 @@ function SCxml(source)
 	}
 	else
 	{
-		console.debug("Fetching "+source+"…")
 		new XHR(source, this, this.xhrResponse, null, this.xhrFailed)
 	}
 }
@@ -100,7 +99,7 @@ SCxml.prototype={
 			if(tagName!="scxml")
 				throw this.dom.documentURI+" is not an SCXML document"
 			if(namespaceURI!="http://www.w3.org/2005/07/scxml")
-				throw this.dom.documentURI+" is not a valid SCXML document (missing or incorrect xmlns)"
+				console.warn(this.dom.documentURI+" is not a valid SCXML document (missing or incorrect xmlns)")
 			if(hasAttribute("datamodel")
 			&& getAttribute("datamodel") != "ecmascript")
 				throw "'"+getAttribute("datamodel")+"' datamodel in"
@@ -108,8 +107,8 @@ SCxml.prototype={
 			if(hasAttribute("binding")
 			&& getAttribute("binding") != "early"
 			&& getAttribute("binding") != "late")
-				throw "binding='"+getAttribute("binding")+"' in"
-				+ this.dom.documentURI +" is not valid"
+				console.warn("binding='"+getAttribute("binding")+"' in"
+				+ this.dom.documentURI +" is not valid")
 			this.lateBinding=(getAttribute("binding")=="late")
 			this.datamodel._name=getAttribute("name")
 		}
@@ -132,7 +131,8 @@ SCxml.prototype={
 	{
 		this.dom=dom
 		this.validate()
-
+		
+		if("function" == typeof this.onload) this.onload()
 
 		var lb=this.lateBinding // just temporarily forget this
 		this.lateBinding=true	// to let execute() do its job
@@ -210,7 +210,7 @@ SCxml.prototype={
 		var onentry=this.dom.querySelectorAll("#"+id+" > onentry")
 		for(var i=0; i<onentry.length; i++)
 			try{this.execute(onentry[i])}
-			catch(err){continue}
+			catch(err){}
 		
 		switch(state.tagName)
 		{
@@ -259,7 +259,7 @@ SCxml.prototype={
 		var onexit=this.dom.querySelectorAll("#"+id+" > onexit")
 		for(var i=0; i<onexit.length; i++)
 			try{this.execute(onexit[i])}
-			catch(err){continue}
+			catch(err){}
 	},
 
 	// wrapper for eval, to handle expr and similar attributes
@@ -367,14 +367,26 @@ SCxml.prototype={
 			loc=element.getAttribute("location")
 			if(!loc) this.error("syntax",element,new Error(
 				"'loc' attribute required"))
-			// it's not actually possible to ensure loc is declared
-			// somewhere in the datamodel, since loc could be a complex
-			// expression far beyond syntactic analysis, and if the result
-			// is not in datamodel scope we can't prevent default access
-			// to *everything* in global (window) scope.
+			this.datamodel._x.dmValue=this.expr(loc, element)
 			
-			// So this will only throw if the location is not declared at all
-			this.expr("valueOf("+loc+")", element)
+			// Now this is a hack to see if 'loc' resolves in datamodel scope
+			var globalResolves = true
+			try{var globalValue=eval(loc)} catch(err){globalResolves=false}
+			if(globalResolves)
+			{
+				// try assigning a special value in datamodel scope
+				this.expr(loc+" = '__SCxmlGlobalCheck__'", element)
+				// now see if it shows up in global scope
+				if(eval(loc)==='__SCxmlGlobalCheck__')
+				{
+					eval(loc+" = globalValue") // restore it before throw
+					this.error("execution",element,new ReferenceError(
+						loc+" is not declared in the datamodel"))
+				}
+				this.expr(loc+" = _x.dmValue", element)
+				delete this.datamodel._x.dmValue
+			}
+			
 			if(value) this.expr(loc+" = "+value, element)
 			break
 		case "if":
@@ -399,7 +411,7 @@ SCxml.prototype={
 			if(!(a instanceof Object || "string"==typeof a)
 			|| !/^(\$|[^\W\d])[\w$]*$/.test(i)
 			|| !/^(\$|[^\W\d])[\w$]*$/.test(v))
-				this.error("execution",element,"invalid item, index or array")
+				this.error("execution",element,new Error("invalid item, index or array"))
 			for(var k in a)
 			{
 				if(i) this.datamodel[i]=k
@@ -466,7 +478,6 @@ SCxml.prototype={
 		}
 		
 		// if we reach here, no transition could be used
-		console.log(this.name+": macrostep completed.")
 		this.stable=true
 		this.extEventLoop()
 	},
@@ -547,7 +558,10 @@ SCxml.prototype={
 	onEvent:function onEvent(event)
 	{
 		if(!this.running)
-			throw this.name+" has terminated and cannot process more events"
+		{
+			console.warn(this.name+" has terminated and cannot process more events")
+			return
+		}
 		this.externalQueue.push(event)
 		if(this.stable)
 			this.extEventLoop()
