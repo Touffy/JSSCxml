@@ -42,7 +42,7 @@ SCxml.Error=function (name, src, err)
 	SCxml.Event.call(this, name)
 	this.srcElement=src||null
 	this.err=err
-	if(src.tagName=="send")
+	if(src && src.tagName=="send")
 		this.sendid=src.getAttribute("id")
 }
 SCxml.Error.prototype=new SCxml.Event()
