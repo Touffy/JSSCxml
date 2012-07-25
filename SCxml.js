@@ -249,10 +249,6 @@ SCxml.prototype={
 		if(!(state.tagName in SCxml.STATE_ELEMENTS))
 			throw state +" is not a state element."
 		
-		common=common||this.dom.documentElement
-		if(state.parentNode!=common)
-			this.exitState(state.parentNode)
-		
 		var id=state.getAttribute('id')		
 		delete this.configuration[id]
 		
@@ -260,6 +256,10 @@ SCxml.prototype={
 		for(var i=0; i<onexit.length; i++)
 			try{this.execute(onexit[i])}
 			catch(err){}
+
+		common=common||this.dom.documentElement
+		if(state.parentNode!=common)
+			this.exitState(state.parentNode,common)
 	},
 
 	// wrapper for eval, to handle expr and similar attributes
