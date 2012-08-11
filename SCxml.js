@@ -6,6 +6,19 @@ It must be instantiated for each SCXML document.
 JSSCxml provides a function (SCxml.parseSCXMLTags) for automatically
 creating SCxml instances from the src attribute of every <scxml> element
 in the main Webpage.
+
+Otherwise, you can simply create an interpreter like this:
+	new SCxml(uriOfYourScxmlDocument)
+
+
+Some large methods are defined in separate files.
+They must be included along SCxml.js:
+
+xhr.js				wraps HTTP communication
+structures.js		some specific, optimized SCXML preprocessing
+SCxmlDatamodel.js	implements the datamodel
+SCxmlEvent.js		authors may want to read that one
+SCxmlExecute.js		implements executable content
 */
 
 // for now, source can only be a URI
@@ -17,9 +30,11 @@ function SCxml(source)
 	this.externalQueue=[]
 	
 	this.configuration={}
-	this.sid=++SCxml.sessionCount
+	this.statesToEnter=null
+	
+	this.sid=SCxml.sessions.length
 	this.datamodel=new SCxml.Datamodel(this)
-	SCxml.sessions[this.sid]=this
+	SCxml.sessions.push(this)
 	
 	this.running=false
 	this.stable=false
@@ -35,37 +50,7 @@ function SCxml(source)
 	}
 }
 
-SCxml.sessions=[]
-SCxml.sessionCount=0
-
-SCxml.EventProcessors={
-	SCXML:{name:"http://www.w3.org/TR/scxml/#SCXMLEventProcessor"},
-	basichttp:{name:"http://www.w3.org/TR/scxml/#BasicHTTPEventProcessor"},
-	DOM:{name:"http://www.w3.org/TR/scxml/#DOMEventProcessor"}
-}
-/*
-This is necessary for the In method to work flawlessly.
-By using a closure, I let In() access the configuration
-without adding the name 'configuration' to the datamodel.
-*/
-SCxml.Datamodel=function SCxmlDatamodel(sc)
-{
-	this.In=function In(state){ return state in sc.configuration }
-	this._sessionid=sc.sid
-}
-SCxml.Datamodel.prototype={
-	_event:undefined,
-	_name:"",
-	_ioprocessors:SCxml.EventProcessors,
-	_x:{},
-	
-	// these are here to prevent direct HTML DOM access from SCXML scripts
-	
-	document:undefined,
-	window:undefined,
-	history:undefined,
-	navigator:undefined
-}
+SCxml.sessions=[null]
 
 /*
 Instantiates an SCxml() for each <scxml> in the HTML document,
@@ -112,6 +97,12 @@ SCxml.prototype={
 			this.lateBinding=(getAttribute("binding")=="late")
 			this.datamodel._name=getAttribute("name")
 		}
+		var states=this.dom.querySelectorAll("state, final, parallel, history")
+		for(var i=0, state; state=states[i]; i++)
+		// generate an ID for states that don't have one
+			if(!state.hasAttribute('id'))
+				state.setAttribute('id', this.uniqId())
+		
 		// use just the filename for messages, URI can be quite long
 		this.name=this.dom.documentURI.match(/[^/]+\.(?:sc)?xml/)[0]
 	},
@@ -126,8 +117,14 @@ SCxml.prototype={
 		return id
 	},
 	
+	getById: function(id){
+		var s=this.dom.getElementById(id)
+		if(!s) throw this.name+": transition target "+id+" not found"
+		return s
+	},
+	
 	// get started with the parsed SCXML
-	interpret: function interpret(dom)
+	interpret: function(dom)
 	{
 		this.dom=dom
 		this.validate()
@@ -164,128 +161,196 @@ SCxml.prototype={
 		var init=this.firstState(dom.documentElement)
 		// and... enter !
 		if(!init) throw this.name + " has no suitable initial state."
-		this.enterState( init )
+		this.addStatesToEnter( [init] )
+		this.statesToEnter.inEntryOrder().forEach(this.enterState,this)
+		this.mainEventLoop()
 	},
 	
-	firstState: function firstState(parent)
+	// find the initial state in the document or in a <state>;
+	// returns null or undefined if the state is atomic or parallel
+	firstState: function(parent)
 	{
+		if(parent.tagName!="state" && parent.tagName!="scxml")
+			return null
+		
 		var id, state
 		if(parent.hasAttribute("initial"))
-		{
 			state=this.dom.getElementById(id=parent.getAttribute("initial"))
-			if(!state) throw "initial state with id='"
-				+id+"' not found in "+this.name
-			return state
-		}
 
-		if(state=this.dom.querySelector("#"+parent.getAttribute("id")
+		else if(state=this.dom.querySelector("#"+parent.getAttribute("id")
 			+" > *[initial]"))
-			return state
+		{
+			var trans=state.firstElementChild
+			while(trans && trans.tagName!="transition")
+				trans=trans.nextElementSibling
+			if(!trans)
+				throw this.name+": <initial> requires a <transition>."
+			parent.executeAfterEntry=trans
+			state=this.dom.getElementById(id=trans.getAttribute("target"))
+		}
+		else
+		{
+			state=parent.firstElementChild
+			while(state && !(state.tagName in SCxml.STATE_ELEMENTS))
+				state=state.nextElementSibling
+		}
 		
-		state=parent.firstElementChild
-		while(state && !(state.tagName in SCxml.STATE_ELEMENTS))
-			state=state.nextElementSibling
+		if(state) state.defaultEntry=true
 		return state
 	},
 	
-	// add an event and its ancestors to the configuration,
-	// run the onentry stuff then start the event loop
-	enterState: function enterState(state,rec)
+	addStatesToEnter: function(states)
 	{
-		if(!(state.tagName in SCxml.STATE_ELEMENTS))
-			throw state +" is not a state element."
-		// spec says we MUST generate an id for states that have none
-		if(!state.hasAttribute('id'))
-			state.setAttribute('id', this.uniqId())
-
-		var id=state.getAttribute('id')
-		if(id in this.configuration) return
-		this.configuration[id]=(state)
+	for(var i=0, state; state=states[i]; i++)
+	{
+		if(state.tagName=="history")
+		{
+			var h
+			if("record" in state)
+				h=state.record
+			else // use the transition by default
+			{
+				var trans=state.firstElementChild
+				while(trans && trans.tagName!="transition")
+					trans=trans.nextElementSibling
+				if(!trans)
+					throw this.name+": <history> requires a default <transition>."
+				// transition content must be run after parent's onentry
+				// but before entering any children
+				state.parentNode.executeAfterEntry=trans
+				h=trans.getAttribute("target").split(/\s+/)
+					.map(this.getById,this)
+			}
+			this.addStatesToEnter(h)
+		}
+		else this.statesToEnter=this.walkToEnter(state, this.statesToEnter)
+	}
+	},
+	
+	walkToEnter: function(state, tree)
+	{
+		var path=[]
 		
-		// first add ancestors to the configuration
-		if(state.parentNode.tagName != "scxml")
-			this.enterState(state.parentNode,true)
-				
-		// now add this one
+		var id=state.getAttribute('id')
+		path.push(state)
+		var down=state, up=state
+		while(down = this.firstState(down))
+			path.push(down)
+		while((up = up.parentNode).tagName=="state")
+			path.unshift(up)
+		
+		var ct=new CompiledTree(new CompiledPath(path))
+		
+		if(!ct.root.atomic)
+		{
+			var c=ct.root.end.firstElementChild
+			while(c) if(c.tagName in SCxml.STATE_ELEMENTS)
+			{
+				if(tree && tree.root.path[0]==c)
+					ct.appendChild(tree)
+				else
+					this.walkToEnter(c,ct)
+				c=c.nextElementSibling
+			}
+		}
+		
+		// this happens when climbing deeper into the tree
+		// or when there are multiple target states
+		if(tree && tree.attach(ct))
+			return tree
+
+		// else, clim up to the root
+		while(ct.root.parent.tagName!="scxml")
+			ct=this.walkToEnter(ct.root.parent, ct)
+		
+		return ct
+	},
+	
+	// add to the configuration, run the onentry stuff
+	enterState: function(state)
+	{
+		var id=state.getAttribute('id')
+		if(id in this.configuration) return;
+		this.configuration[id]=state
+		state.setAttribute("active",true)
+		
 		var onentry=this.dom.querySelectorAll("#"+id+" > onentry")
+		if(state.executeafterEntry)
+		{
+			onentry[onentry.length++]=state.executeAfterEntry
+			delete state.executeAfterEntry
+		}
 		for(var i=0; i<onentry.length; i++)
 			try{this.execute(onentry[i])}
 			catch(err){}
 		
-		switch(state.tagName)
+		if(state.tagName=="final")
 		{
-		case "parallel":
-			var c=state.firstElementChild
-			while(c) if(c.tagName in SCxml.STATE_ELEMENTS)
-			{
-				this.enterState(c,true)
-				c=c.nextElementSibling
-			}
-			break
-		case "final":
 			if(state.parentNode==this.dom.documentElement)
 			{
 				this.running=false
 				this.stable=true
 				console.log(this.name+" reached top-level final state: Terminated.")
-				SCxml.sessions[this.sid]=null
-				return
 			}
 			else
 				this.internalQueue.push(new SCxml.Event("done.state."
 				+state.parentNode.getAttribute("id")))
-		default:
-			var first
-			if(first = this.firstState(state))
-				this.enterState(first,true)
 		}
-
-		if(!rec) this.mainEventLoop()
 	},
-	// remove a state and its ancestors from the configuration,
-	// and don't forget to run the onexit blocks
-	exitState: function exitState(state, common)
+
+
+	findLCCA: function(source, targets)
 	{
-		if(!(state.tagName in SCxml.STATE_ELEMENTS))
-			throw state +" is not a state element."
+		var LCCA=source
+		var ids=targets.map(function (e){
+				if(e.tagName=="history") e=e.parentNode
+				return "#"+e.getAttribute("id")})
+			.join(", ")
+		// determine transition type
+		var internal=(source.querySelectorAll(ids).length==targets.length)
 		
-		var id=state.getAttribute('id')		
-		delete this.configuration[id]
+		// get Least Common Compound Ancestor
+		if(!internal)
+			while((LCCA=LCCA.parentNode)
+				.querySelectorAll(ids).length<targets.length );
+		
+		return LCCA
+	},
+	
+	saveHistory: function(state)
+	{
+		var id=state.getAttribute('id')
+		if(!(id in this.configuration)) return;
+		
+		var histories=this.dom.querySelectorAll("#"+id+" > history")
+		for(var i=0, h; h=histories[i]; i++)
+		h.record=this.activeChildren(state, h.getAttribute("type")=="deep")
+	},
+	
+	// remove a state from the configuration,
+	// and don't forget to run the onexit blocks before
+	exitState: function(state)
+	{
+		var id=state.getAttribute('id')
+		if(!(id in this.configuration)) return;
 		
 		var onexit=this.dom.querySelectorAll("#"+id+" > onexit")
 		for(var i=0; i<onexit.length; i++)
 			try{this.execute(onexit[i])}
 			catch(err){}
 
-		common=common||this.dom.documentElement
-		if(state.parentNode!=common)
-			this.exitState(state.parentNode,common)
+		delete this.configuration[id]
+		state.removeAttribute("active")
 	},
 
 	// wrapper for eval, to handle expr and similar attributes
 	// that need to be evaluated as ECMAScript
-	expr: function expr(s,el)
+	expr: function(s,el)
 	{
 		// TODO: check that the expr doesn't do horrible stuff
 		
 		try{ with(this.datamodel){ return eval(s) } }
 		catch(e){ this.error("execution",el,e) }
-	},
-	
-	// just declares datamodel variables as undefined
-	declare: function declare(element)
-	{
-		var c=element.firstElementChild
-		if(element.tagName=="data")
-		{
-			var id=element.getAttribute("id")
-			this.datamodel[id]=undefined
-		}
-		else while(c)
-		{
-			this.declare(c)
-			c=c.nextElementSibling
-		}
 	},
 	
 	log: console.log,	// easy to override later
@@ -295,186 +360,81 @@ SCxml.prototype={
 	// (we can't determine the SCXML line number)
 	error: function(name, src, err){
 		this.internalQueue.push(new SCxml.Error("error."+name, src, err))
-		console.error(err+"\nin SCXML "+this.name+" :")
-		console.error(src)
+		console.error(err+"\nin SCXML "+this.name+" :", src)
 		throw(err)
 	},
 	
-	// handles executable content
-	execute: function execute(element)
-	{
-		var value=element.getAttribute("expr")
-		var c=element.firstElementChild
-		var loc, event
-		switch(element.tagName)
-		{
-		case "raise":
-			event=element.getAttribute("event")
-				||this.expr(element.getAttribute("eventexpr"))
-			this.internalQueue.push(new SCxml.InternalEvent(event, element))
-			break
-		case "send":
-			var target=element.getAttribute("target")
-				||this.expr(element.getAttribute("targetexpr"))
-				||"#_scxml_"+this.sid
-			event=element.getAttribute("event")
-				||this.expr(element.getAttribute("eventexpr"))
-
-			if(!element.hasAttribute('id'))
-				element.setAttribute('id', this.uniqId())
-			var id=element.getAttribute("id")
-			if(loc=element.getAttribute("idlocation"))
-				this.expr(loc+'="'+id+'"')
-			var type=element.getAttribute("type")
-				||this.expr(element.getAttribute("typeexpr"))
-				||SCxml.EventProcessors.SCXML.name
-			var delay=element.getAttribute("delay")
-				||this.expr(element.getAttribute("delayexpr"))
-				||0
-
-			if(target=="#_internal")
-			{
-				this.internalQueue.push(new SCxml.InternalEvent(event, element))
-				break
-			}
-			if(!target.match(/^#_scxml_./))
-				this.error("execution",element,
-					new Error('unsupported target "'+target+'"'))
-			
-			var data="" // not implemented yet
-			var e=new SCxml.ExternalEvent(event, this.sid, "", "", data)
-			if(delay) window.setTimeout(SCxml.send, delay, target, e)
-			else SCxml.send(target, e)
-			break
-		case "log":
-			this.log(element.getAttribute("label")+" = "
-				+this.expr(value,element))
-			break
-		case "data":
-			if(!this.lateBinding) break // do not reinitialize again
-			var id=element.getAttribute("id")
-			// create the variable first, so it's "declared"
-			// even if the assignment part fails or doesn't occur
-			this.datamodel[id]=undefined
-			if(element.hasAttribute("expr"))
-				this.expr(id+" = "+value, element)
-			else if(value=element.getAttribute("src"))
-			{
-				// TODO: fetch the data
-			}
-			break
-		case "assign":
-			loc=element.getAttribute("location")
-			if(!loc) this.error("syntax",element,new Error(
-				"'loc' attribute required"))
-			this.datamodel._x.dmValue=this.expr(loc, element)
-			
-			// Now this is a hack to see if 'loc' resolves in datamodel scope
-			var globalResolves = true
-			try{var globalValue=eval(loc)} catch(err){globalResolves=false}
-			if(globalResolves)
-			{
-				// try assigning a special value in datamodel scope
-				this.expr(loc+" = '__SCxmlGlobalCheck__'", element)
-				// now see if it shows up in global scope
-				if(eval(loc)==='__SCxmlGlobalCheck__')
-				{
-					eval(loc+" = globalValue") // restore it before throw
-					this.error("execution",element,new ReferenceError(
-						loc+" is not declared in the datamodel"))
-				}
-				this.expr(loc+" = _x.dmValue", element)
-				delete this.datamodel._x.dmValue
-			}
-			
-			if(value) this.expr(loc+" = "+value, element)
-			break
-		case "if":
-			var cond=this.expr(element.getAttribute("cond"))
-			while(!cond && c)
-			{
-				if(c.tagName=="else") cond=true
-				if(c.tagName=="elseif") cond=this.expr(c.getAttribute("cond"))
-				c=c.nextElementSibling
-			}
-			while(c)
-			{
-				if(c.tagName=="else" || c.tagName=="elseif") break
-				this.execute(c)
-				c=c.nextElementSibling
-			}
-			break
-		case "foreach":
-			var a=this.expr(element.getAttribute("array"))
-			var v=element.getAttribute("item")
-			var i=element.getAttribute("index")
-			if(!(a instanceof Object || "string"==typeof a)
-			|| !/^(\$|[^\W\d])[\w$]*$/.test(i)
-			|| !/^(\$|[^\W\d])[\w$]*$/.test(v))
-				this.error("execution",element,new Error("invalid item, index or array"))
-			for(var k in a)
-			{
-				if(i) this.datamodel[i]=k
-				if(v) this.datamodel[v]=a[k]
-				for(c=element.firstElementChild; c; c=c.nextElementSibling)
-					this.execute(c)
-			}
-			break
-		case "script":
-			this.expr(element.textContent,element)
-			break
-			
-		default:
-			while(c)
-			{
-				this.execute(c)
-				c=c.nextElementSibling
-			}
-		}
-	},
-	
 	// returns a list of all transitions for an event (or eventless),
-	// in document order
-	selectTransitions: function selectTransitions(event)
+	// in the specified order (see sortedConfiguration below)
+	selectTransitions: function(event, conf)
 	{
-		function filter(e)
+		var that=this
+		function test(e)
 		{
-			if(e.nodeType!=1 || e.tagName!="transition") return false
-			if(event) return e.hasAttribute("event") && event.match(e)
-			else return !e.hasAttribute("event")
+			if(e.nodeType!=1 || e.tagName!="transition"
+			|| (event? !(e.hasAttribute("event") && event.match(e))
+				: e.hasAttribute("event"))) return false
+			try{ return !e.hasAttribute("cond")
+				|| that.expr(e.getAttribute("cond"),e)
+			}catch(err) {}
 		}
+		
 		var trans=[]
-		var conf=this.sortedConfiguration()
-		for(var i=0; i<conf.length; i++)
+		
+		for(var i=0; i<conf.length; i++) for(var j=0, s; s=conf[i][j]; j++)
 		{
-			var cs=conf[i].childNodes
-			for(var c=0; c<cs.length; c++) if(filter(cs[c]))
-				trans.push(cs[c])
+			var t=s.firstElementChild
+			if(!t) continue
+			while(!test(t) && (t=t.nextElementSibling));
+			if(t){
+				// also prepare a bit (just a bit)
+				if(!t.targets)
+					t.targets=t.getAttribute("target").split(/\s+/)
+						.map(this.getById,this)
+				trans.push(t)
+			}
 		}
-		return trans
+		
+		return trans.length ? this.preemptTransitions(trans) : trans
 	},
 	
-	mainEventLoop: function mainEventLoop()
+	// a transition preempts another iff it exits the other's source state
+	// (it makes sense, and so says a normative section of the spec;
+	// I don't care that they made the pseudocode more complicated than that)
+	preemptTransitions: function(trans)
 	{
+		var t=trans[0] // the first one can never be preempted
+		t.lcca=this.findLCCA(t.parentNode, t.targets)
+		if(trans.length<2) return trans
+
+		var filtered=[trans[0]]
+		
+		overTransitions:
+		for(var i=1; t=trans[i]; i++)
+		{
+			for(var j=0, p; p=filtered[j]; j++)
+				if(p.lcca.querySelector("#"+t.parentNode.getAttribute("id")))
+					continue overTransitions // t is preempted
+			t.lcca=this.findLCCA(t.parentNode, t.targets)
+			filtered.push(t)
+		}
+		return filtered
+	},
+	
+	mainEventLoop: function()
+	{
+		var conf=this.sortedConfiguration()
 		// first try eventless transition
-		var trans=this.selectTransitions()
-		for(t in trans) try{
-			if(!trans[t].hasAttribute("cond")
-			|| this.expr(trans[t].getAttribute("cond"),trans[t]))
-				return this.takeTransition(trans[t])
-			} catch(err) {}
+		var trans=this.selectTransitions(null, conf)
+		if(trans.length) return this.takeTransitions(trans)
 		
 		// if none is enabled, consume internal events
 		var event
 		while(event=this.internalQueue.shift())
 		{
 			this.datamodel._event=event
-			trans=this.selectTransitions(event)
-			for(t in trans) try{
-				if(!trans[t].hasAttribute("cond")
-				|| this.expr(trans[t].getAttribute("cond"),trans[t]))
-					return this.takeTransition(trans[t])
-			} catch(err) {}
+			trans=this.selectTransitions(event, conf)
+			if(trans.length) return this.takeTransitions(trans)
 		}
 		
 		// if we reach here, no transition could be used
@@ -482,20 +442,17 @@ SCxml.prototype={
 		this.extEventLoop()
 	},
 
-	extEventLoop: function extEventLoop()
+	extEventLoop: function()
 	{
+		var conf=this.sortedConfiguration()
 		this.stable=false
 		// consume external events
-		var event
+		var event, trans
 		while(event=this.externalQueue.shift())
 		{
 			this.datamodel._event=event
-			trans=this.selectTransitions(event)
-			for(t in trans) try{
-				if(!trans[t].hasAttribute("cond")
-				|| this.expr(trans[t].getAttribute("cond")))
-					return this.takeTransition(trans[t])
-			} catch(err) {continue}
+			trans=this.selectTransitions(event,conf)
+			if(trans) return this.takeTransitions(trans)
 		}
 		
 		// if we reach here, no transition could be used
@@ -503,55 +460,69 @@ SCxml.prototype={
 		console.log(this.name+": waiting for external events.")
 	},
 	
-	// try to follow a transition, after exiting the source state
-	takeTransition: function takeTransition(trans)
+	// try to follow transitions, after exiting the source states
+	takeTransitions: function(trans)
 	{
-		var id=trans.getAttribute("target")
-		var state=this.dom.getElementById(id)
-		var parent=trans.parentNode
-		console.log(this.name+": "+parent.getAttribute("id")+" → "+id)
-
-		// find the closest common parent
-		while((parent=parent.parentNode).tagName!="scxml")
-			if(this.dom.querySelector("#"+ parent.getAttribute('id') +" > #"+id))
-				break
-
-		this.exitState(trans.parentNode, parent)
+		// first exit all the states that must be exited
+		for(var i=trans.length-1, t; t=trans[i]; i--)
+		{
+			console.log(this.name+": "+t.parentNode.getAttribute("id")
+				+" → ["+t.getAttribute("target")+"]")
+			
+			var s=this.dom.createNodeIterator(t.lcca,
+				NodeFilter.SHOW_ELEMENT, SCxml.activeStateFilter)
+			var rev=[], v
+			while(v=s.nextNode()) rev.push(v)
+			rev.reverse().forEach(this.saveHistory, this)
+			rev.forEach(this.exitState, this)
+			s.detach()
+		}
 		
 		// now, between exit and entry, run the executable content if present
-		this.execute(trans)
-		
-		if(!state) throw this.name+": transition target id='"+id+"' not found."
-		this.enterState(state)
+		for(i=0; t=trans[i]; i++)
+		{
+			try{ this.execute(t) }
+			catch(err){}
+		}
+
+		this.statesToEnter=null
+		// then enter all the states to enter
+		for(i=0; t=trans[i]; i++)
+			this.addStatesToEnter(t.targets)
+		this.statesToEnter.inEntryOrder().forEach(this.enterState,this)
+		if(this.running) this.mainEventLoop()
 	},
-	
-	// returns the configuration, ordered, as an array
+
+	// returns the immediate or deep (atomic) active children
+	activeChildren: function(state, deep)
+	{
+		var active=[]
+		var c=this.dom.createTreeWalker(state||this.dom.documentElement,
+			NodeFilter.SHOW_ELEMENT, SCxml.activeStateFilter)
+		if(!c.firstChild())
+			return active
+		while(1)
+		{
+			if(deep) while(c.firstChild()); // dive straight down
+			active.push(c.currentNode)
+			if(!(deep ? c.nextNode() : c.nextSibling()))
+				break
+		}
+		return active
+	},
+
+	// returns an array with all active atomic states, in document order,
+	// each followed by their ancestors from child to parent
+	// (I humbly suggest the above description to the working group :p)
 	sortedConfiguration: function sortedConfiguration()
 	{
-		var conf=[]
-		var leaves={}
-		var c
-		for(var i in this.configuration)
-			leaves[i]=this.configuration[i]
-		
-		for(i in this.configuration) 
-		if(this.configuration[i].parentNode.nodeName!="scxml")
-			delete leaves[this.configuration[i].parentNode.getAttribute('id')]
-		
-		for(i in leaves)
+		function ancestors(c)
 		{
-			conf.push(c=leaves[i])
-			c.visited=true
-			while((c=c.parentNode).nodeName!="scxml")
-				if(!c.visited)
-				{
-					c.visited=true
-					conf.push(c)
-				}
+			for(var a=[c]; (c=c.parentNode).nodeName!="scxml";) a.push(c)
+			return a
 		}
-		for(var i in this.configuration)
-			this.configuration[i].visited=false
-		return conf
+
+		return this.activeChildren(null, true).map(ancestors)
 	},
 	
 	// handles external events
@@ -565,11 +536,11 @@ SCxml.prototype={
 		this.externalQueue.push(event)
 		if(this.stable)
 			this.extEventLoop()
-	}
+	}	
 	
 }
 
-SCxml.send=function send(target, event)
+SCxml.send=function(target, event)
 {
 	console.log("sending a "+event.name+" event to "+target)
 	var sid
@@ -582,5 +553,4 @@ SCxml.send=function send(target, event)
 	else {} // TODO
 }
 
-SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel',
-	initial: 'initial', 'final': 'final', history: "history"}
+SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel', 'final': 'final'}
