@@ -97,14 +97,24 @@ SCxml.prototype={
 			this.lateBinding=(getAttribute("binding")=="late")
 			this.datamodel._name=getAttribute("name")
 		}
-		var states=this.dom.querySelectorAll("state, final, parallel, history")
-		for(var i=0, state; state=states[i]; i++)
-		// generate an ID for states that don't have one
-			if(!state.hasAttribute('id'))
-				state.setAttribute('id', this.uniqId())
 		
-		// use just the filename for messages, URI can be quite long
-		this.name=this.dom.documentURI.match(/[^/]+\.(?:sc)?xml/)[0]
+		with(this.dom)
+		{
+			var states=querySelectorAll("state, final, parallel, history")
+			for(var i=0, state; state=states[i]; i++)
+			// generate an ID for states that don't have one
+				if(!state.hasAttribute('id'))
+					state.setAttribute('id', this.uniqId())
+			
+			var testId=querySelector("[id]")
+			if(getElementById(testId.getAttribute("id"))==null)
+			// happens in Firefox, very annoying, so it's best to replace it
+				getElementById=function(id)
+				{ return querySelector("[id="+id+"]") }
+			
+			// use just the filename for messages, URI can be quite long
+			this.name=documentURI.match(/[^/]+\.(?:sc)?xml/)[0]
+		}
 	},
 
 	// creates a unique ID guaranteed not to occur in the same SCXML
@@ -177,8 +187,8 @@ SCxml.prototype={
 		if(parent.hasAttribute("initial"))
 			state=this.dom.getElementById(id=parent.getAttribute("initial"))
 
-		else if(state=this.dom.querySelector("#"+parent.getAttribute("id")
-			+" > *[initial]"))
+		else if(state=this.dom.querySelector("[id="+parent.getAttribute("id")
+			+"] > *[initial]"))
 		{
 			var trans=state.firstElementChild
 			while(trans && trans.tagName!="transition")
@@ -274,7 +284,7 @@ SCxml.prototype={
 		this.configuration[id]=state
 		state.setAttribute("active",true)
 		
-		var onentry=this.dom.querySelectorAll("#"+id+" > onentry")
+		var onentry=this.dom.querySelectorAll("[id="+id+"] > onentry")
 		if(state.executeafterEntry)
 		{
 			onentry[onentry.length++]=state.executeAfterEntry
@@ -304,7 +314,7 @@ SCxml.prototype={
 		var LCCA=source
 		var ids=targets.map(function (e){
 				if(e.tagName=="history") e=e.parentNode
-				return "#"+e.getAttribute("id")})
+				return "[id="+e.getAttribute("id")+"]"})
 			.join(", ")
 		// determine transition type
 		var internal=(source.querySelectorAll(ids).length==targets.length)
@@ -322,7 +332,7 @@ SCxml.prototype={
 		var id=state.getAttribute('id')
 		if(!(id in this.configuration)) return;
 		
-		var histories=this.dom.querySelectorAll("#"+id+" > history")
+		var histories=this.dom.querySelectorAll("[id="+id+"] > history")
 		for(var i=0, h; h=histories[i]; i++)
 		h.record=this.activeChildren(state, h.getAttribute("type")=="deep")
 	},
@@ -334,7 +344,7 @@ SCxml.prototype={
 		var id=state.getAttribute('id')
 		if(!(id in this.configuration)) return;
 		
-		var onexit=this.dom.querySelectorAll("#"+id+" > onexit")
+		var onexit=this.dom.querySelectorAll("[id="+id+"] > onexit")
 		for(var i=0; i<onexit.length; i++)
 			try{this.execute(onexit[i])}
 			catch(err){}
@@ -413,7 +423,7 @@ SCxml.prototype={
 		for(var i=1; t=trans[i]; i++)
 		{
 			for(var j=0, p; p=filtered[j]; j++)
-				if(p.lcca.querySelector("#"+t.parentNode.getAttribute("id")))
+				if(p.lcca.querySelector("[id="+t.parentNode.getAttribute("id")+"]"))
 					continue overTransitions // t is preempted
 			t.lcca=this.findLCCA(t.parentNode, t.targets)
 			filtered.push(t)
