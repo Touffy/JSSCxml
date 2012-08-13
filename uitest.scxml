@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" datamodel="ecmascript">
+
+<state id="s0">
+	<transition event="click" target="s0">
+		<send event="sayHello" type="DOM" target="."/>
+	</transition>
+</state>
+
+</scxml>

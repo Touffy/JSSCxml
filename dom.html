@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>JSSCxml test page for DOM interaction</title>
+	
+	<script src="xhr.js"></script>
+	<script src="structures.js"></script>
+	<script src="SCxml.js"></script>
+	<script src="SCxmlFilters.js"></script>
+	<script src="SCxmlDatamodel.js"></script>
+	<script src="SCxmlEvent.js"></script>
+	<script src="SCxmlExecute.js"></script>
+	
+	<style>
+scxml { display: none; }
+	</style>
+</head>
+<body>
+
+<p>This document contains a button and an SCxml element initialized with a simple SC. When you click the button, it relays the "click" DOM event to the SCxml interpreter. In response, the interpreter just fires a bubbling custom event, which is handled by an event listener in the body, which shows an alert.</p>
+
+<scxml src="uitest.scxml"></scxml>
+
+<input type="button" value="send an event to the SC">
+
+<script>
+
+SCxml.parseSCXMLTags()
+
+// just pass the DOM event to the interpreter's onEvent method
+document.getElementsByTagName("input")[0].addEventListener("click", function(e)
+{ SCxml.sessions[1].onEvent(e) })
+
+// the listener doesn't have to be on the SCXML itself,
+// it can be further up because the event bubbles
+document.body.addEventListener("sayHello", function(e)
+{ window.alert("Just received an event bubbling from the SCXML element") }, false)
+
+</script>
+
+
+</body>
+</html>
