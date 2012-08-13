@@ -56,7 +56,29 @@ SCxml.ExternalEvent=function (name, origin, origintype,
 	this.origin=origin||""
 	this.origintype=origintype||""
 	this.invokeid=invokeid||""
-	this.data=data
+	this.data=data||{}
 }
 SCxml.ExternalEvent.prototype=new SCxml.Event()
 SCxml.ExternalEvent.prototype.constructor=SCxml.ExternalEvent
+
+SCxml.ExternalEvent.DOMRefCount=1
+SCxml.ExternalEvent.targetOfElement=function (e)
+{
+	if(e instanceof Element)
+		return "//*[@scxmlref=\""+(e.getAttribute("scxmlref")
+		|| (e.setAttribute("scxmlref", SCxml.ExternalEvent.DOMRefCount)
+			, SCxml.ExternalEvent.DOMRefCount++))+"\"]"
+	return e
+}
+
+SCxml.ExternalEvent.fromDOMEvent=function (de)
+{
+	var e=new SCxml.ExternalEvent(de.type, de.srcElement, "DOM")
+	e.timeStamp=de.timeStamp
+	
+	if(de instanceof CustomEvent)
+		e.data=de.detail
+	else for(var prop in de) if(de.hasOwnProperty(prop))
+		e.data[prop]=SCxml.ExternalEvent.targetOfElement(de[prop])
+	return e
+}

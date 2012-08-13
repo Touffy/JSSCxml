@@ -39,9 +39,9 @@ SCxml.prototype.execute=function(element)
 		var id=element.getAttribute("id")
 		if(loc=element.getAttribute("idlocation"))
 			this.expr(loc+'="'+id+'"')
-		var type=element.getAttribute("type")
+		var proc=element.getAttribute("type")
 			||this.expr(element.getAttribute("typeexpr"))
-			||SCxml.EventProcessors.SCXML.name
+			||"SCXML"
 		var delay=parseInt(element.getAttribute("delay")
 			||this.expr(element.getAttribute("delayexpr")))*1000
 			||0
@@ -51,14 +51,22 @@ SCxml.prototype.execute=function(element)
 			this.internalQueue.push(new SCxml.InternalEvent(event, element))
 			break
 		}
-		if(!target.match(/^#_scxml_./))
-			this.error("execution",element,
-				new Error('unsupported target "'+target+'"'))
 		
+		if(proc in SCxml.EventProcessors)
+			proc=SCxml.EventProcessors[proc]
+		else
+			for(var st in SCxml.EventProcessors)
+				if(SCxml.EventProcessors[st].name==proc)
+					proc=SCxml.EventProcessors[st]
+		if("object" != typeof proc)
+			this.error("execution",element,
+				new Error('unsupported IO processor "'+proc+'"'))
+
 		var data="" // not implemented yet
-		var e=new SCxml.ExternalEvent(event, this.sid, "", "", data)
-		if(delay) window.setTimeout(SCxml.send, delay, target, e)
-		else SCxml.send(target, e)
+		
+		var e=proc.createEvent(event, this, data, element)
+		if(delay) window.setTimeout(proc.send, delay, e, target, element, this)
+		else proc.send(e, target, element, this)
 		break
 	case "log":
 		this.log(element.getAttribute("label")+" = "

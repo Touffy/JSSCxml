@@ -22,7 +22,7 @@ SCxmlExecute.js		implements executable content
 */
 
 // for now, source can only be a URI
-function SCxml(source)
+function SCxml(source, htmlContext)
 {
 	this.dom=null
 	
@@ -35,6 +35,7 @@ function SCxml(source)
 	this.sid=SCxml.sessions.length
 	this.datamodel=new SCxml.Datamodel(this)
 	SCxml.sessions.push(this)
+	this.html=htmlContext||window.document.documentElement
 	
 	this.running=false
 	this.stable=false
@@ -61,7 +62,7 @@ SCxml.parseSCXMLTags=function ()
 {
 	var tags=document.getElementsByTagName("scxml")
 	for(var i=0; i<tags.length; i++)
-		tags[i].interpreter=new SCxml(tags[i].getAttribute("src"))
+		tags[i].interpreter=new SCxml(tags[i].getAttribute("src"), tags[i])
 }
 
 SCxml.prototype={
@@ -78,6 +79,8 @@ SCxml.prototype={
 	
 	validate: function validate()
 	{
+		if(!this.dom)
+			throw "Failed to load SCXML because of malformed XML."
 		// TODO: much more validation
 		with(this.dom.documentElement)
 		{
@@ -543,24 +546,13 @@ SCxml.prototype={
 			console.warn(this.name+" has terminated and cannot process more events")
 			return
 		}
+		if(event instanceof Event)
+			event=SCxml.ExternalEvent.fromDOMEvent(event)
 		this.externalQueue.push(event)
 		if(this.stable)
 			this.extEventLoop()
 	}	
 	
-}
-
-SCxml.send=function(target, event)
-{
-	console.log("sending a "+event.name+" event to "+target)
-	var sid
-	if((sid=target.match(/^#_scxml_(.+)$/)) && (sid=sid[1]))
-	{
-		if(sid in SCxml.sessions && SCxml.sessions[sid])
-			SCxml.sessions[sid].onEvent(event)
-		else throw "target SCXML session doesn't exist"
-	}
-	else {} // TODO
 }
 
 SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel', 'final': 'final'}
