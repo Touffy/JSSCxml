@@ -8,7 +8,7 @@ The name should be pronounced "JessieXML".
 
 ### Development status
 
-The interpreter is currently limited to SCXML-only local events (you can send/receive events between SCs inside the same browser window. It can receive external SCXML events from JavaScript within that window, but cannot yet return the favor by generating DOM events.
+The interpreter is currently limited to local events (you can send/receive events between SCs inside the same browser window, receive external events from JavaScript within that window, and fire back DOM events).
 
 It is also limited to local JavaScript data and external SCXML files fetched through XmlHttpRequest.
 
