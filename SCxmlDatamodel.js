@@ -4,9 +4,9 @@ SCxml.EventProcessors={
 		name:"http://www.w3.org/TR/scxml/#SCXMLEventProcessor",
 		createEvent: function(name, sc, data)
 		{
-			return new SCxml.ExternalEvent(event, sc.sid, "", "", data)
+			return new SCxml.ExternalEvent(name, sc.sid, "", "", data)
 		},
-		send: function(target, event, element, sc)
+		send: function(event, target, element, sc)
 		{
 			console.log("sending a "+event.name+" event to "+target)
 			var sid
