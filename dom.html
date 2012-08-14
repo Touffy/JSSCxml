@@ -35,7 +35,11 @@ document.getElementsByTagName("input")[0].addEventListener("click", function(e)
 // the listener doesn't have to be on the SCXML itself,
 // it can be further up because the event bubbles
 document.body.addEventListener("sayHello", function(e)
-{ window.alert("Just received an event bubbling from the SCXML element") }, false)
+{
+	window.alert("Just received an event bubbling from the SCXML element,\n"
+		+"check the console for the data object.")
+	console.log(e.detail)
+}, false)
 
 </script>
 

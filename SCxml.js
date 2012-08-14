@@ -495,7 +495,7 @@ SCxml.prototype={
 		for(i=0; t=trans[i]; i++)
 		{
 			try{ this.execute(t) }
-			catch(err){}
+			catch(err){ throw err }
 		}
 
 		this.statesToEnter=null

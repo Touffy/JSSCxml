@@ -14,6 +14,29 @@ SCxml.prototype.declare=function(element)
 	}
 }
 
+SCxml.prototype.readParams=function(element, data)
+{
+	var c=element.firstElementChild
+	while(c) if(c.tagName=="param")
+	{
+		var name=c.getAttribute("name")
+		var value=c.getAttribute("expr") || c.getAttribute("loc")
+		try{
+			if(data.hasOwnProperty(name))
+			{
+				if(data[name] instanceof Array)
+					data[name].push(this.expr(value, c))
+				else data[name] = [data[name], this.expr(value, c)]
+			}
+			else data[name] = this.expr(value, c)
+		}catch(err){ throw err}
+
+		c=c.nextElementSibling
+	}
+}
+
+
+
 // handles executable content
 SCxml.prototype.execute=function(element)
 {
@@ -62,7 +85,17 @@ SCxml.prototype.execute=function(element)
 			this.error("execution",element,
 				new Error('unsupported IO processor "'+proc+'"'))
 
-		var data="" // not implemented yet
+		var namelist=element.getAttribute("namelist")
+		var data={}
+		if(namelist)
+		{
+			namelist=namelist.split(" ")
+			for(var i=0, name; name=namelist[i]; i++)
+				data[name]=this.expr(name)
+		}
+		this.readParams(element, data)
+		if(c && c.tagName=="content")
+			data=c.textContent
 		
 		var e=proc.createEvent(event, this, data, element)
 		if(delay) window.setTimeout(proc.send, delay, e, target, element, this)

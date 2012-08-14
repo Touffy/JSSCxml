@@ -27,7 +27,7 @@ SCxml.EventProcessors={
 	},
 	DOM:{
 		name:"http://www.w3.org/TR/scxml/#DOMEventProcessor",
-		createEvent: function(name, sc, data, element)
+		createEvent: function(name, sc, data)
 		{
 			// this is the ugly DOM 3 version to improve compatibility
 			var e=document.createEvent("CustomEvent")
