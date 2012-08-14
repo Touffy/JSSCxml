@@ -303,20 +303,31 @@ SCxml.prototype={
 			try{this.execute(onentry[i])}
 			catch(err){}
 		
+		state.fin=true
 		if(state.tagName=="final")
-		{
-			if(state.parentNode==this.dom.documentElement)
-			{
-				this.running=false
-				this.stable=true
-				console.log(this.name+" reached top-level final state: Terminated.")
-			}
-			else
-				this.internalQueue.push(new SCxml.Event("done.state."
-				+state.parentNode.getAttribute("id")))
-		}
+			this.finalState(state.parentNode)
 	},
 
+	finalState: function(state)
+	{
+		if(state.tagName=="scxml")
+		{
+			this.running=false
+			this.stable=true
+			console.log(this.name+" reached top-level final state: Terminated.")
+			return
+		}
+		
+		if(state.tagName=="parallel")
+			for(var c=state.firstElementChild; c; c=c.nextElementSibling)
+				if(c.tagName in SCxml.STATE_ELEMENTS && !c.fin) return;
+		
+		state.fin=true
+		var id=state.getAttribute('id')
+		this.internalQueue.push(new SCxml.Event("done.state."+id))
+		if(state.parentNode.tagName=="parallel")
+			this.finalState(state.parentNode)
+	},
 
 	findLCCA: function(source, targets)
 	{
