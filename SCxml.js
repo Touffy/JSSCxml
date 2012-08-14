@@ -174,7 +174,8 @@ SCxml.prototype={
 		var init=this.firstState(dom.documentElement)
 		// and... enter !
 		if(!init) throw this.name + " has no suitable initial state."
-		this.addStatesToEnter( [init] )
+		if(init instanceof Array) this.addStatesToEnter( init )
+		else this.addStatesToEnter( [init] )
 		this.statesToEnter.inEntryOrder().forEach(this.enterState,this)
 		this.mainEventLoop()
 	},
@@ -188,7 +189,11 @@ SCxml.prototype={
 		
 		var id, state
 		if(parent.hasAttribute("initial"))
-			state=this.dom.getElementById(id=parent.getAttribute("initial"))
+		{
+			state=parent.getAttribute("initial").split(/\s+/)
+				.map(this.getById, this)
+			if(state.length==1 || parent.tagName=="state") return state[0]
+		}
 
 		else if(state=this.dom.querySelector("[id="+parent.getAttribute("id")
 			+"] > initial"))
