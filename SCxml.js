@@ -191,7 +191,7 @@ SCxml.prototype={
 			state=this.dom.getElementById(id=parent.getAttribute("initial"))
 
 		else if(state=this.dom.querySelector("[id="+parent.getAttribute("id")
-			+"] > *[initial]"))
+			+"] > initial"))
 		{
 			var trans=state.firstElementChild
 			while(trans && trans.tagName!="transition")
@@ -207,8 +207,6 @@ SCxml.prototype={
 			while(state && !(state.tagName in SCxml.STATE_ELEMENTS))
 				state=state.nextElementSibling
 		}
-		
-		if(state) state.defaultEntry=true
 		return state
 	},
 	
@@ -286,17 +284,17 @@ SCxml.prototype={
 	enterState: function(state)
 	{
 		var id=state.getAttribute('id')
-		if(id in this.configuration) return;
+		if(id in this.configuration){ delete state.executeAfterEntry; return }
 		this.configuration[id]=state
 		state.setAttribute("active",true)
 		
 		var onentry=this.dom.querySelectorAll("[id="+id+"] > onentry")
-		if(state.executeafterEntry)
+		if(state.executeAfterEntry)
 		{
-			onentry[onentry.length++]=state.executeAfterEntry
+			onentry[onentry.length]=state.executeAfterEntry
 			delete state.executeAfterEntry
 		}
-		for(var i=0; i<onentry.length; i++)
+		for(var i=0; onentry[i]; i++)
 			try{this.execute(onentry[i])}
 			catch(err){}
 		
