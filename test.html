@@ -44,9 +44,6 @@ output{
 <scxml src="w3c_tests/test156.scxml"></scxml>
 <scxml src="w3c_tests/test158.scxml"></scxml>
 
-<!-- this one passes because JSSCxml is not validating SCXML anyway,
-    and won't even when it has a strict mode -->
-
 <scxml src="w3c_tests/test266.scxml"></scxml>
 <scxml src="w3c_tests/test277.scxml"></scxml>
 <scxml src="w3c_tests/test278.scxml"></scxml>
@@ -94,23 +91,26 @@ output{
 <scxml src="w3c_tests/test388.scxml"></scxml>
 
 <scxml src="w3c_tests/test396.scxml"></scxml>
+<scxml src="w3c_tests/test399.scxml"></scxml>
+
+<scxml src="w3c_tests/test401.scxml"></scxml>
+<scxml src="w3c_tests/test402.scxml"></scxml>
+<scxml src="w3c_tests/test403.scxml"></scxml>
+<scxml src="w3c_tests/test404.scxml"></scxml>
+<scxml src="w3c_tests/test405.scxml"></scxml>
+
 
 
 <!-- new tests that pass -->
 <!--
-<scxml src="w3c_tests/test401.scxml"></scxml>
 <scxml src="w3c_tests/test421.scxml"></scxml>
 <scxml src="w3c_tests/test419.scxml"></scxml>
 <scxml src="w3c_tests/test416.scxml"></scxml>
-<scxml src="w3c_tests/test403.scxml"></scxml>
 <scxml src="w3c_tests/test411.scxml"></scxml>
 
 
 <!-- new tests that fail -->
 <!--
-<scxml src="w3c_tests/test399.scxml"></scxml>
-<scxml src="w3c_tests/test402.scxml"></scxml>
-<scxml src="w3c_tests/test405.scxml"></scxml>
 <scxml src="w3c_tests/test406.scxml"></scxml>
 <scxml src="w3c_tests/test409.scxml"></scxml>
 <scxml src="w3c_tests/test412.scxml"></scxml>
@@ -118,18 +118,27 @@ output{
 	
 -->
 
-<p>Log messages from the SCs:
+<p>Passed: <output></output></p>
+
+<p>Log messages from the SCs:</p>
 <div></div>
 
 <script>
 
 logdiv=document.getElementsByTagName("div")[0]
+tally=document.getElementsByTagName("output")[0]
+
+passed=0
+total=0
 
 SCxml.prototype.log=function (message){
 	with(logdiv.appendChild(document.createElement("p")))
 	{
+		total++
 		appendChild(document.createElement("span")).textContent=this.name
 		appendChild(document.createElement("output")).value=message
+		if(message=="Outcome = pass") passed++
+		tally.value=passed+" / "+total
 	}
 }
 
