@@ -17,12 +17,17 @@ SCxml.Event.prototype.match=function (t)
 // matches transitions and events, e.g. "user.*" matches "user.login"
 // the argument is an actual <transtion> element
 {
-	pattern=t.getAttribute("event").split(".")
-	event=this.name.split(".")
-	if(pattern.length>event.length) return false
-	for(var i=0; i<pattern.length; i++)
-		if(pattern[i]!="*" && pattern[i]!=event[i]) return false
-	return true
+	var patterns=t.getAttribute("event").split(/\s+/)
+	var event=this.name.split(".")
+	
+	overPatterns: for(var i=0, p; p=patterns[i]; i++)
+	{
+		if((p=p.split(".")).length>event.length) continue
+		for(var j=0; j<p.length; j++)
+			if(p[j]!="*" && p[j]!=event[j]) continue overPatterns
+		return true
+	}
+	return false
 }
 
 
