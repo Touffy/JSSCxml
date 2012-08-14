@@ -245,6 +245,7 @@ SCxml.prototype={
 		var path=[]
 		
 		var id=state.getAttribute('id')
+
 		path.push(state)
 		var down=state, up=state
 		while(down = this.firstState(down))
@@ -257,12 +258,14 @@ SCxml.prototype={
 		if(!ct.root.atomic)
 		{
 			var c=ct.root.end.firstElementChild
-			while(c) if(c.tagName in SCxml.STATE_ELEMENTS)
-			{
-				if(tree && tree.root.path[0]==c)
-					ct.appendChild(tree)
-				else
-					this.walkToEnter(c,ct)
+			while(c){ if(c.tagName in SCxml.STATE_ELEMENTS)
+				{
+					
+					if(tree && tree.root.path[0]==c)
+						ct.appendChild(tree)
+					else
+						this.walkToEnter(c,ct)
+				}
 				c=c.nextElementSibling
 			}
 		}
