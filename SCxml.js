@@ -405,6 +405,7 @@ SCxml.prototype={
 					t.targets=t.getAttribute("target").split(/\s+/)
 						.map(this.getById,this)
 				trans.push(t)
+				break
 			}
 		}
 		
@@ -437,6 +438,7 @@ SCxml.prototype={
 	mainEventLoop: function()
 	{
 		var conf=this.sortedConfiguration()
+		
 		// first try eventless transition
 		var trans=this.selectTransitions(null, conf)
 		if(trans.length) return this.takeTransitions(trans)
