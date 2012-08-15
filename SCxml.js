@@ -331,6 +331,7 @@ SCxml.prototype={
 
 	findLCCA: function(source, targets)
 	{
+		if(targets==null) return null // targetless
 		var LCCA=source
 		var ids=targets.map(function (e){
 				if(e.tagName=="history") e=e.parentNode
@@ -418,9 +419,9 @@ SCxml.prototype={
 			while(!test(t) && (t=t.nextElementSibling));
 			if(t){
 				// also prepare a bit (just a bit)
-				if(!t.targets)
-					t.targets=t.getAttribute("target").split(/\s+/)
-						.map(this.getById,this)
+				if(!t.targets) t.targets= t.hasAttribute("target") ?
+					t.getAttribute("target").split(/\s+/).map(this.getById,this)
+					: null
 				trans.push(t)
 				break
 			}
@@ -444,7 +445,8 @@ SCxml.prototype={
 		for(var i=1; t=trans[i]; i++)
 		{
 			for(var j=0, p; p=filtered[j]; j++)
-				if(p.lcca.querySelector("[id="+t.parentNode.getAttribute("id")+"]"))
+				if(p.lcca && p.lcca.querySelector(
+					"[id="+t.parentNode.getAttribute("id")+"]"))
 					continue overTransitions // t is preempted
 			t.lcca=this.findLCCA(t.parentNode, t.targets)
 			filtered.push(t)
@@ -499,7 +501,9 @@ SCxml.prototype={
 		for(var i=trans.length-1, t; t=trans[i]; i--)
 		{
 			console.log(this.name+": "+t.parentNode.getAttribute("id")
-				+" → ["+t.getAttribute("target")+"]")
+				+" → ["+(t.getAttribute("target")||"*targetless*")+"]")
+			
+			if(!t.targets) continue
 			
 			var s=this.dom.createNodeIterator(t.lcca,
 				NodeFilter.SHOW_ELEMENT, SCxml.activeStateFilter)
@@ -519,9 +523,10 @@ SCxml.prototype={
 
 		this.statesToEnter=null
 		// then enter all the states to enter
-		for(i=0; t=trans[i]; i++)
+		for(i=0; t=trans[i]; i++) if(t.targets)
 			this.addStatesToEnter(t.targets)
-		this.statesToEnter.inEntryOrder().forEach(this.enterState,this)
+		if(this.statesToEnter)
+			this.statesToEnter.inEntryOrder().forEach(this.enterState,this)
 		if(this.running) this.mainEventLoop()
 	},
 
@@ -575,3 +580,22 @@ SCxml.prototype={
 }
 
 SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel', 'final': 'final'}
+
+SCxml.stateFilter={acceptNode: function(node){ return 2-(node.tagName in SCxml.STATE_ELEMENTS) }}
+
+SCxml.tagNameFilter=function (tagName)
+{
+	return {acceptNode: function(node)
+	{
+		if(node.tagName==tagName) return 1
+		return 2
+	}}
+}
+
+SCxml.activeStateFilter={acceptNode: function(node)
+{
+	if(!(node.tagName in SCxml.STATE_ELEMENTS
+	&& node.getAttribute("active")))
+		return 2
+	return 1
+}}
