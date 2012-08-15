@@ -445,8 +445,8 @@ SCxml.prototype={
 		for(var i=1; t=trans[i]; i++)
 		{
 			for(var j=0, p; p=filtered[j]; j++)
-				if(p.lcca && p.lcca.querySelector(
-					"[id="+t.parentNode.getAttribute("id")+"]"))
+				if(t==p || (p.lcca && p.lcca.querySelector(
+					"[id="+t.parentNode.getAttribute("id")+"]")))
 					continue overTransitions // t is preempted
 			t.lcca=this.findLCCA(t.parentNode, t.targets)
 			filtered.push(t)
