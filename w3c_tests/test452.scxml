@@ -4,7 +4,8 @@ to a substructure (not the top level variable).  This may not be the most idioma
    <data id="foo" expr="0"/>
    </datamodel>
     <script>
-    function testobject() {
+    _x.declare("testobject") // we have to do this because of scoping issues
+    testobject=function testobject() {
     this.bar = 0;}
    </script>    
 <state id="s0">
