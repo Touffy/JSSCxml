@@ -5,13 +5,23 @@ SCxml.prototype.declare=function(element)
 	if(element.tagName=="data")
 	{
 		var id=element.getAttribute("id")
-		this.datamodel[id]=undefined
+		if(id in this.datamodel._jsscxml_predefined_)
+			console.warn("Variable '"+id+"' is shadowing a predefined"
+			+ "window variable: please never delete it.\nin", element)
+		else this.datamodel[id]=undefined
 	}
 	else while(c)
 	{
 		this.declare(c)
 		c=c.nextElementSibling
 	}
+}
+
+SCxml.prototype.assign=function(left, right)
+{
+	if(left in this.datamodel._jsscxml_predefined_)
+		this.datamodel._jsscxml_predefined_[left]=right
+	else this.datamodel[left]=right
 }
 
 SCxml.prototype.readParams=function(element, data)
@@ -110,7 +120,10 @@ SCxml.prototype.execute=function(element)
 		var id=element.getAttribute("id")
 		// create the variable first, so it's "declared"
 		// even if the assignment part fails or doesn't occur
-		this.datamodel[id]=undefined
+		if(id in this.datamodel._jsscxml_predefined_)
+			console.warn("Variable '"+id+"' is shadowing a predefined"
+			+ "window variable: please never delete it.\nin", element)
+		else this.datamodel[id]=undefined
 		if(element.hasAttribute("expr"))
 			this.expr(id+" = "+value, element)
 		else if(value=element.getAttribute("src"))
@@ -122,26 +135,7 @@ SCxml.prototype.execute=function(element)
 		loc=element.getAttribute("location")
 		if(!loc) this.error("syntax",element,new Error(
 			"'loc' attribute required"))
-		this.datamodel._x.dmValue=this.expr(loc, element)
-		
-		// Now this is a hack to see if 'loc' resolves in datamodel scope
-		var globalResolves = true
-		try{var globalValue=eval(loc)} catch(err){globalResolves=false}
-		if(globalResolves)
-		{
-			// try assigning a special value in datamodel scope
-			this.expr(loc+" = '__SCxmlGlobalCheck__'", element)
-			// now see if it shows up in global scope
-			if(eval(loc)==='__SCxmlGlobalCheck__')
-			{
-				eval(loc+" = globalValue") // restore it before throw
-				this.error("execution",element,new ReferenceError(
-					loc+" is not declared in the datamodel"))
-			}
-			this.expr(loc+" = _x.dmValue", element)
-			delete this.datamodel._x.dmValue
-		}
-		
+		this.expr(loc, element) // eval once to see if it's been declared
 		if(value) this.expr(loc+" = "+value, element)
 		break
 	case "if":
@@ -163,20 +157,23 @@ SCxml.prototype.execute=function(element)
 		var a=this.expr(element.getAttribute("array"))
 		var v=element.getAttribute("item")
 		var i=element.getAttribute("index")
-		if(!(a instanceof Object || "string"==typeof a)
-		|| !/^(\$|[^\W\d])[\w$]*$/.test(i)
-		|| !/^(\$|[^\W\d])[\w$]*$/.test(v))
-			this.error("execution",element,new Error("invalid item, index or array"))
+		if(!(a instanceof this.datamodel.Object || "string"==typeof a))
+			this.error("execution",element,new TypeError("Invalid array"))
+		if(i && !/^(\$|[^\W\d])[\w$]*$/.test(i))
+			this.error("execution",element,new SyntaxError("Invalid index"))
+		if(v && !/^(\$|[^\W\d])[\w$]*$/.test(v))
+			this.error("execution",element,new SyntaxError("Invalid item"))
+			
 		for(var k in a)
 		{
-			if(i) this.datamodel[i]=k
-			if(v) this.datamodel[v]=a[k]
+			if(i) this.assign(i,k)
+			if(v) this.assign(v,a[k])
 			for(c=element.firstElementChild; c; c=c.nextElementSibling)
 				this.execute(c)
 		}
 		break
 	case "script":
-		this.expr(element.textContent,element)
+		this.wrapScript(element.textContent,element)
 		break
 		
 	default:

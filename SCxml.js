@@ -16,7 +16,8 @@ They must be included along SCxml.js:
 
 xhr.js				wraps HTTP communication
 structures.js		some specific, optimized SCXML preprocessing
-SCxmlDatamodel.js	implements the datamodel
+SCxmlProcessors.js	implements Event IO Processors
+SCxmlScript.js		the ECMAscript execution wrapper iframe
 SCxmlEvent.js		authors may want to read that one
 SCxmlExecute.js		implements executable content
 */
@@ -33,9 +34,10 @@ function SCxml(source, htmlContext)
 	this.statesToEnter=null
 	
 	this.sid=SCxml.sessions.length
-	this.datamodel=new SCxml.Datamodel(this)
 	SCxml.sessions.push(this)
 	this.html=htmlContext||window.document.documentElement
+	
+	this.initIframe()
 	
 	this.running=false
 	this.stable=false
@@ -43,7 +45,7 @@ function SCxml(source, htmlContext)
 	if(source instanceof Element)
 	{
 		// not really implemented
-		this.interpret(source)
+		throw "Inline SCXML is not supported yet."
 	}
 	else
 	{
@@ -142,8 +144,6 @@ SCxml.prototype={
 		this.dom=dom
 		this.validate()
 		
-		if("function" == typeof this.onload) this.onload()
-
 		var lb=this.lateBinding // just temporarily forget this
 		this.lateBinding=true	// to let execute() do its job
 		
@@ -153,7 +153,7 @@ SCxml.prototype={
 
 		d=dom.querySelectorAll("scxml > script")
 		for(var i=0; i<d.length; i++)
-			try{this.expr(d[i].textContent,d[i])} catch(err){}
+			try{this.wrapScript(d[i].textContent,d[i])} catch(err){}
 
 
 		// interpret other <datamodel>s, but do not assign if binding="late"
@@ -379,9 +379,7 @@ SCxml.prototype={
 	expr: function(s,el)
 	{
 		// TODO: check that the expr doesn't do horrible stuff
-		
-		try{ with(this.datamodel){ return eval(s) } }
-		catch(e){ this.error("execution",el,e) }
+		return this.datamodel.expr(s,el)
 	},
 	
 	log: console.log,	// easy to override later
