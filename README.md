@@ -16,6 +16,6 @@ It is also limited to local JavaScript data and external SCXML files fetched thr
 ### Known issues
 (that I'm not going to fix right now)
 
-- Variable and function declarations in `<script>` content will result in declarations in the global (`window`) scope instead of the SC's _datamodel_. Until this is fixed, you should always declare top-level variables by using `<data>` elements.
+- Variables whose name matched a predefined window variable are pre-declared in the datamodel. They will never cause an error if you try to assign to them without an explicit declaration. Also, you should never delete them.
 
-- The JavaScript expression in the `location` attribute of an `<assign>` element is currently being evaluated more than once while executing the `<assign>`, and is also evaluated in `window` scope. That could cause a bug if it affects the _datamodel_ (e.g. increments a counter, creates a new object or a new list item, prior to assignment). You should perform any such actions in a `<script>`, and use read-only expressions in `location` attributes. Or you can just write the whole assignment in a `<script>`, of course.
+- The JavaScript expression in the `location` attribute of an `<assign>` element is currently being evaluated twice while executing the `<assign>`. That could cause a bug if it has side-effects. You should perform any such actions in a `<script>`, and use read-only expressions in `location` attributes. Or you can just write the whole assignment in a `<script>`, of course.
