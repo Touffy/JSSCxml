@@ -1,5 +1,5 @@
 
-SCxml.prototype.initIframe=function ()
+SCxml.prototype.initIframe=function (data)
 {
 	if(this.datamodel) return;
 	
@@ -33,6 +33,13 @@ SCxml.prototype.initIframe=function ()
 	this.datamodel._name=""
 	this.datamodel._ioprocessors=SCxml.EventProcessors
 	this.datamodel._x={}
+	
+	if(data) for(i in data) if(data.hasOwnProperty(i))
+	{
+		if(this.datamodel.hasOwnProperty(i))
+			this.datamodel._jsscxml_predefined_[i]=data[i]
+		else this.datamodel[i]=data[i]
+	}
 	
 	this.datamodel.document.write('<script>\n'
 		+'function In(state){ return state in _sc.configuration }\n</script>')

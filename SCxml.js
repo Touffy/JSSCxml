@@ -23,7 +23,8 @@ SCxmlExecute.js		implements executable content
 */
 
 // source can be a URI, an SCXML string, or an <scxml> element
-function SCxml(source, htmlContext)
+// data is an object whose properties will be copied into the datamodel
+function SCxml(source, htmlContext, data)
 {
 	this.dom=null
 	
@@ -37,7 +38,7 @@ function SCxml(source, htmlContext)
 	SCxml.sessions.push(this)
 	this.html=htmlContext||window.document.documentElement
 	
-	this.initIframe()
+	this.initIframe(data)
 	
 	this.running=false
 	this.stable=false
@@ -131,7 +132,7 @@ SCxml.prototype={
 					state.setAttribute('id', this.uniqId())
 			
 			var testId=querySelector("[id]")
-			if(getElementById(testId.getAttribute("id"))==null)
+			if(testId && getElementById(testId.getAttribute("id"))==null)
 			// happens in Firefox, very annoying, so it's best to replace it
 				getElementById=function(id)
 				{ return querySelector("[id="+id+"]") }
