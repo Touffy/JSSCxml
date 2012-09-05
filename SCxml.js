@@ -42,13 +42,27 @@ function SCxml(source, htmlContext)
 	this.running=false
 	this.stable=false
 
+	// use just the filename for messages, URI can be quite long
+	this.name="session "+this.sid
+
 	if(source instanceof Element)
 	{
-		// not really implemented
-		throw "Inline SCXML is not supported yet."
+		var ns=source.getAttribute("xmlns")
+		var d=document.implementation.createDocument(ns, "scxml", null)
+		for(var i=0, a; a=source.attributes[i]; i++)
+			d.documentElement.setAttribute(a.name, a.value)
+		for(var c; c=source.firstElementChild;)
+			d.documentElement.appendChild(d.adoptNode(c, true))
+		setTimeout(function(sc, dom){ sc.interpret(dom) }, 0, this, d)
+	}
+	else if(/^\s*</.test(source))
+	{
+		var d=new DOMParser().parseFromString(source, "application/scxml+xml")
+		setTimeout(function(sc, dom){ sc.interpret(dom) }, 0, this, d)
 	}
 	else
 	{
+		this.name=source.match(/[^/]+\.(?:sc)?xml/)[0]
 		new XHR(source, this, this.xhrResponse, null, this.xhrFailed)
 	}
 }
@@ -64,7 +78,12 @@ SCxml.parseSCXMLTags=function ()
 {
 	var tags=document.getElementsByTagName("scxml")
 	for(var i=0; i<tags.length; i++)
-		tags[i].interpreter=new SCxml(tags[i].getAttribute("src"), tags[i])
+	{
+		if(tags[i].hasAttribute("src"))
+			tags[i].interpreter=new SCxml(tags[i].getAttribute("src"), tags[i])
+		else
+			tags[i].interpreter=new SCxml(tags[i], tags[i])
+	}
 }
 
 SCxml.prototype={
@@ -92,7 +111,7 @@ SCxml.prototype={
 				console.warn(this.dom.documentURI+" is not a valid SCXML document (missing or incorrect xmlns)")
 			if(hasAttribute("datamodel")
 			&& getAttribute("datamodel") != "ecmascript")
-				throw "'"+getAttribute("datamodel")+"' datamodel in"
+				throw "'"+getAttribute("datamodel")+"' datamodel in "
 				+ this.dom.documentURI +" is not supported by JSSCxml"
 			if(hasAttribute("binding")
 			&& getAttribute("binding") != "early"
@@ -116,9 +135,6 @@ SCxml.prototype={
 			// happens in Firefox, very annoying, so it's best to replace it
 				getElementById=function(id)
 				{ return querySelector("[id="+id+"]") }
-			
-			// use just the filename for messages, URI can be quite long
-			this.name=documentURI.match(/[^/]+\.(?:sc)?xml/)[0]
 		}
 	},
 
