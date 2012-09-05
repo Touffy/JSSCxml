@@ -4,11 +4,11 @@ It must be instantiated for each SCXML document.
 
 
 JSSCxml provides a function (SCxml.parseSCXMLTags) for automatically
-creating SCxml instances from the src attribute of every <scxml> element
-in the main Webpage.
+creating SCxml instances from every <scxml> element in the main Webpage,
+using either their "src" attribute or their inline content.
 
 Otherwise, you can simply create an interpreter like this:
-	new SCxml(uriOfYourScxmlDocument)
+	new SCxml(source)
 
 
 Some large methods are defined in separate files.
@@ -22,7 +22,7 @@ SCxmlEvent.js		authors may want to read that one
 SCxmlExecute.js		implements executable content
 */
 
-// for now, source can only be a URI
+// source can be a URI, an SCXML string, or an <scxml> element
 function SCxml(source, htmlContext)
 {
 	this.dom=null
