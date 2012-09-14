@@ -24,9 +24,10 @@ SCxmlExecute.js		implements executable content
 
 // source can be a URI, an SCXML string, or an <scxml> element
 // data is an object whose properties will be copied into the datamodel
-function SCxml(source, htmlContext, data)
+function SCxml(source, htmlContext, data, interpretASAP)
 {
 	this.dom=null
+	this.interpretASAP=interpretASAP
 	
 	this.internalQueue=[]
 	this.externalQueue=[]
@@ -63,7 +64,7 @@ function SCxml(source, htmlContext, data)
 	}
 	else
 	{
-		this.name=source.match(/[^/]+\.(?:sc)?xml/)[0]
+		this.name=source.match(/[^\/]+\.(?:sc)?xml/)[0]
 		new XHR(source, this, this.xhrResponse, null, this.xhrFailed)
 	}
 }
@@ -131,11 +132,8 @@ SCxml.prototype={
 				if(!state.hasAttribute('id'))
 					state.setAttribute('id', this.uniqId())
 			
-			var testId=querySelector("[id]")
-			if(testId && getElementById(testId.getAttribute("id"))==null)
-			// happens in Firefox, very annoying, so it's best to replace it
-				getElementById=function(id)
-				{ return querySelector("[id="+id+"]") }
+			getElementById=function(id)
+			{ return querySelector("state[id="+id+"], final[id="+id+"], history[id="+id+"], parallel[id="+id+"]") }
 		}
 	},
 
@@ -517,7 +515,6 @@ SCxml.prototype={
 		{
 			console.log(this.name+": "+t.parentNode.getAttribute("id")
 				+" → ["+(t.getAttribute("target")||"*targetless*")+"]")
-			
 			if(!t.targets) continue
 			
 			var s=this.dom.createNodeIterator(t.lcca,
