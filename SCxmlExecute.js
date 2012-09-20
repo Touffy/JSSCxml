@@ -45,7 +45,14 @@ SCxml.prototype.readParams=function(element, data)
 	}
 }
 
-
+SCxml.parseTime=function (s)
+{
+	s=/^((?:\d*\.)?\d+)(m?s)$/.exec(s)
+	if(!s) return -1
+	var t=Number(s[1])
+	if(s[2]=="s") t*=1000
+	return t
+}
 
 // handles executable content
 SCxml.prototype.execute=function(element)
@@ -75,9 +82,8 @@ SCxml.prototype.execute=function(element)
 		var proc=element.getAttribute("type")
 			||this.expr(element.getAttribute("typeexpr"))
 			||"SCXML"
-		var delay=parseInt(element.getAttribute("delay")
-			||this.expr(element.getAttribute("delayexpr")))*1000
-			||0
+		var delay=SCxml.parseTime(element.getAttribute("delay")
+			|| this.expr(element.getAttribute("delayexpr")))
 
 		if(target=="#_internal")
 		{
@@ -108,8 +114,17 @@ SCxml.prototype.execute=function(element)
 			data=c.textContent
 		
 		var e=proc.createEvent(event, this, data, element)
-		if(delay) window.setTimeout(proc.send, delay, e, target, element, this)
+		if(delay > -1)
+			(element.sent || (element.sent=[])).push(
+				window.setTimeout(proc.send, delay, e, target, element, this))
 		else proc.send(e, target, element, this)
+		break
+	case "cancel":
+		var id=element.getAttribute("sendid")
+			||this.expr(element.getAttribute("sendidexpr"))
+		for(var timer, sent=this.dom.querySelector("send[id="+id+"]").sent;
+			timer=sent.pop();)
+				try{window.clearTimeout(timer)} catch(err){}
 		break
 	case "log":
 		this.log(element.getAttribute("label")+" = "
