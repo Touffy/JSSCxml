@@ -57,38 +57,49 @@ SCxml.parseTime=function (s)
 // handles executable content
 SCxml.prototype.execute=function(element)
 {
-	var value=element.getAttribute("expr")
+	if(element.tagName in SCxml.executableContent)
+		return SCxml.executableContent[element.tagName](this, element)
+
 	var c=element.firstElementChild
-	var loc, event
-	switch(element.tagName)
+	while(c)
 	{
-	case "raise":
-		event=element.getAttribute("event")
-			||this.expr(element.getAttribute("eventexpr"))
-		this.internalQueue.push(new SCxml.InternalEvent(event, element))
-		break
-	case "send":
+		this.execute(c)
+		c=c.nextElementSibling
+	}
+}
+
+// if you want to add a custom executable element, simply add a method
+// to this object, with the name of your new element:
+SCxml.executableContent={
+	raise: function(sc, element)
+	{
+		var event=element.getAttribute("event")
+			||sc.expr(element.getAttribute("eventexpr"))
+		sc.internalQueue.push(new SCxml.InternalEvent(event, element))
+	},
+	
+	send: function(sc, element)
+	{
 		var target=element.getAttribute("target")
-			||this.expr(element.getAttribute("targetexpr"))
-			||"#_scxml_"+this.sid
-		event=element.getAttribute("event")
-			||this.expr(element.getAttribute("eventexpr"))
+			||sc.expr(element.getAttribute("targetexpr"))
+			||"#_scxml_"+sc.sid
+		var event=element.getAttribute("event")
+			||sc.expr(element.getAttribute("eventexpr"))
 
 		if(!element.hasAttribute('id'))
-			element.setAttribute('id', this.uniqId())
-		var id=element.getAttribute("id")
+			element.setAttribute('id', sc.uniqId())
+		var id=element.getAttribute("id"), loc
 		if(loc=element.getAttribute("idlocation"))
-			this.expr(loc+'="'+id+'"')
+			sc.expr(loc+'="'+id+'"')
 		var proc=element.getAttribute("type")
-			||this.expr(element.getAttribute("typeexpr"))
+			||sc.expr(element.getAttribute("typeexpr"))
 			||"SCXML"
 		var delay=SCxml.parseTime(element.getAttribute("delay")
-			|| this.expr(element.getAttribute("delayexpr")))
+			|| sc.expr(element.getAttribute("delayexpr")))
 
-		if(target=="#_internal")
-		{
-			this.internalQueue.push(new SCxml.InternalEvent(event, element))
-			break
+		if(target=="#_internal"){
+			sc.internalQueue.push(new SCxml.InternalEvent(event, element))
+			return
 		}
 		
 		if(proc in SCxml.EventProcessors)
@@ -98,7 +109,7 @@ SCxml.prototype.execute=function(element)
 				if(SCxml.EventProcessors[st].name==proc)
 					proc=SCxml.EventProcessors[st]
 		if("object" != typeof proc)
-			this.error("execution",element,
+			sc.error("execution",element,
 				new Error('unsupported IO processor "'+proc+'"'))
 
 		var namelist=element.getAttribute("namelist")
@@ -107,95 +118,104 @@ SCxml.prototype.execute=function(element)
 		{
 			namelist=namelist.split(" ")
 			for(var i=0, name; name=namelist[i]; i++)
-				data[name]=this.expr(name)
+				data[name]=sc.expr(name)
 		}
-		this.readParams(element, data)
+		sc.readParams(element, data)
+		var c=element.firstElementChild
 		if(c && c.tagName=="content")
 			data=c.textContent
 		
-		var e=proc.createEvent(event, this, data, element)
+		var e=proc.createEvent(event, sc, data, element)
 		if(delay > -1)
 			(element.sent || (element.sent=[])).push(
-				window.setTimeout(proc.send, delay, e, target, element, this))
-		else proc.send(e, target, element, this)
-		break
-	case "cancel":
+				window.setTimeout(proc.send, delay, e, target, element, sc))
+		else proc.send(e, target, element, sc)
+	},
+	
+	cancel: function(sc, element)
+	{
 		var id=element.getAttribute("sendid")
-			||this.expr(element.getAttribute("sendidexpr"))
-		for(var timer, sent=this.dom.querySelector("send[id="+id+"]").sent;
+			||sc.expr(element.getAttribute("sendidexpr"))
+		for(var timer, sent=sc.dom.querySelector("send[id="+id+"]").sent;
 			timer=sent.pop();)
 				try{window.clearTimeout(timer)} catch(err){}
-		break
-	case "log":
-		this.log(element.getAttribute("label")+" = "
-			+this.expr(value,element))
-		break
-	case "data":
-		if(!this.lateBinding) break // do not reinitialize again
+	},
+	
+	log: function(sc, element)
+	{
+		var value=element.getAttribute("expr")
+		sc.log(element.getAttribute("label")+" = "+sc.expr(value,element))
+	},
+	
+	data: function(sc, element)
+	{
+		var value=element.getAttribute("expr")
+		if(!sc.lateBinding) return // do not reinitialize again
 		var id=element.getAttribute("id")
 		// create the variable first, so it's "declared"
 		// even if the assignment part fails or doesn't occur
-		if(id in this.datamodel._jsscxml_predefined_)
+		if(id in sc.datamodel._jsscxml_predefined_)
 			console.warn("Variable '"+id+"' is shadowing a predefined"
 			+ "window variable: please never delete it.\nin", element)
-		else this.datamodel[id]=undefined
+		else sc.datamodel[id]=undefined
 		if(element.hasAttribute("expr"))
-			this.expr(id+" = "+value, element)
+			sc.expr(id+" = "+value, element)
 		else if(value=element.getAttribute("src"))
 		{
 			// TODO: fetch the data
 		}
-		break
-	case "assign":
-		loc=element.getAttribute("location")
-		if(!loc) this.error("syntax",element,new Error(
-			"'loc' attribute required"))
-		this.expr(loc, element) // eval once to see if it's been declared
-		if(value) this.expr(loc+" = "+value, element)
-		break
-	case "if":
-		var cond=this.expr(element.getAttribute("cond"))
+	},
+	
+	assign: function(sc, element)
+	{
+		var value=element.getAttribute("expr")
+		var loc=element.getAttribute("location")
+		if(!loc) sc.error("syntax",element,new Error("'loc' attribute required"))
+		sc.expr(loc, element) // eval once to see if it's been declared
+		if(value) sc.expr(loc+" = "+value, element)
+	},
+	
+	"if": function(sc, element)
+	{
+		var cond=sc.expr(element.getAttribute("cond"))
+		var c=element.firstElementChild
 		while(!cond && c)
 		{
 			if(c.tagName=="else") cond=true
-			if(c.tagName=="elseif") cond=this.expr(c.getAttribute("cond"))
+			if(c.tagName=="elseif") cond=sc.expr(c.getAttribute("cond"))
 			c=c.nextElementSibling
 		}
 		while(c)
 		{
 			if(c.tagName=="else" || c.tagName=="elseif") break
-			this.execute(c)
+			sc.execute(c)
 			c=c.nextElementSibling
 		}
-		break
-	case "foreach":
-		var a=this.expr(element.getAttribute("array"))
+	},
+	
+	foreach: function(sc, element)
+	{
+		var a=sc.expr(element.getAttribute("array"))
 		var v=element.getAttribute("item")
 		var i=element.getAttribute("index")
-		if(!(a instanceof this.datamodel.Object || "string"==typeof a))
-			this.error("execution",element,new TypeError("Invalid array"))
+		if(!(a instanceof sc.datamodel.Object || "string"==typeof a))
+			sc.error("execution",element,new TypeError("Invalid array"))
 		if(i && !/^(\$|[^\W\d])[\w$]*$/.test(i))
-			this.error("execution",element,new SyntaxError("Invalid index"))
+			sc.error("execution",element,new SyntaxError("Invalid index"))
 		if(v && !/^(\$|[^\W\d])[\w$]*$/.test(v))
-			this.error("execution",element,new SyntaxError("Invalid item"))
-			
+			sc.error("execution",element,new SyntaxError("Invalid item"))
+		
 		for(var k in a)
 		{
-			if(i) this.assign(i,k)
-			if(v) this.assign(v,a[k])
-			for(c=element.firstElementChild; c; c=c.nextElementSibling)
-				this.execute(c)
+			if(i) sc.assign(i,k)
+			if(v) sc.assign(v,a[k])
+			for(var c=element.firstElementChild; c; c=c.nextElementSibling)
+				sc.execute(c)
 		}
-		break
-	case "script":
-		this.wrapScript(element.textContent,element)
-		break
-		
-	default:
-		while(c)
-		{
-			this.execute(c)
-			c=c.nextElementSibling
-		}
+	},
+	
+	script: function(sc, element)
+	{
+		sc.wrapScript(element.textContent,element)
 	}
 }
