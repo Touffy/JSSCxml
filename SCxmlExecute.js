@@ -198,7 +198,7 @@ SCxml.executableContent={
 		var a=sc.expr(element.getAttribute("array"))
 		var v=element.getAttribute("item")
 		var i=element.getAttribute("index")
-		if(!(a instanceof sc.datamodel.Object || "string"==typeof a))
+		if(("object"!=typeof a) && ("string"!=typeof a))
 			sc.error("execution",element,new TypeError("Invalid array"))
 		if(i && !/^(\$|[^\W\d])[\w$]*$/.test(i))
 			sc.error("execution",element,new SyntaxError("Invalid index"))
