@@ -22,12 +22,11 @@ div p{
 span{
 	color: #0d6437;
 }
+span.fail{
+	color: red;
+}
 span:after{
 	content: ":";
-}
-output{
-	margin-left: 1em;
-	font-family: monospace;
 }
 	</style>
 </head>
@@ -123,11 +122,9 @@ output{
 <scxml src="w3c_tests/test453.scxml"></scxml>
 
 <scxml src="w3c_tests/test487.scxml"></scxml>
-
 <scxml src="w3c_tests/test503.scxml"></scxml>
 <scxml src="w3c_tests/test504.scxml"></scxml>
 <scxml src="w3c_tests/test506.scxml"></scxml>
-
 <scxml src="w3c_tests/test525.scxml"></scxml>
 
 <scxml src="w3c_tests/cancel.scxml"></scxml>
@@ -135,7 +132,7 @@ output{
 
 <p>Passed: <output></output></p>
 
-<p>Log messages from the SCs:</p>
+<p>Individual test results:</p>
 <div></div>
 
 <script>
@@ -144,15 +141,16 @@ logdiv=document.getElementsByTagName("div")[0]
 tally=document.getElementsByTagName("output")[0]
 
 passed=0
-total=0
+total=document.getElementsByTagName("scxml").length
 
 SCxml.prototype.log=function (message){
 	with(logdiv.appendChild(document.createElement("p")))
 	{
-		total++
 		appendChild(document.createElement("span")).textContent=this.name
-		appendChild(document.createElement("output")).value=message
 		if(message=="Outcome = pass") passed++
+		else firstChild.className="fail"
+		appendChild(document.createTextNode(this.dom.evaluate(
+			"//comment()", this.dom, null, 9, null).singleNodeValue.nodeValue))
 		tally.value=passed+" / "+total
 	}
 }
