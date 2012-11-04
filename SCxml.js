@@ -17,7 +17,7 @@ They must be included along SCxml.js:
 xhr.js				wraps HTTP communication
 structures.js		some specific, optimized SCXML preprocessing
 SCxmlProcessors.js	implements Event IO Processors
-SCxmlScript.js		the ECMAscript execution wrapper iframe
+SCxmlDatamodel.js	the datamodel wrapper iframe
 SCxmlEvent.js		authors may want to read that one
 SCxmlExecute.js		implements executable content
 */
@@ -43,8 +43,8 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	
 	this.running=false
 	this.stable=false
+	this.paused=false
 
-	// use just the filename for messages, URI can be quite long
 	this.name="session "+this.sid
 
 	if(source instanceof Element)
@@ -344,23 +344,23 @@ SCxml.prototype={
 			this.finalState(state.parentNode)
 	},
 
-	findLCCA: function(source, targets)
+	findLCCA: function(trans)
 	{
-		if(targets==null) return null // targetless
-		var LCCA=source
+		var source=trans.parentNode, targets=trans.targets
+		trans.internal=false
+		if(targets==null) return trans.lcca=null // targetless
+		trans.lcca=source
 		var ids=targets.map(function (e){
 				if(e.tagName=="history") e=e.parentNode
-				return "[id="+e.getAttribute("id")+"]"})
+				var id=e.getAttribute("id")
+				return "state[id="+id+"], final[id="+id+"], history[id="+id+"], parallel[id="+id+"]"})
 			.join(", ")
 		// determine transition type
-		var internal=(source.querySelectorAll(ids).length==targets.length)
-		
 		// get Least Common Compound Ancestor
-		if(!internal)
-			while((LCCA=LCCA.parentNode)
-				.querySelectorAll(ids).length<targets.length );
-		
-		return LCCA
+		if(source.querySelectorAll(ids).length==targets.length)
+			trans.internal=true
+		else while((trans.lcca=trans.lcca.parentNode)
+			.querySelectorAll(ids).length<targets.length );
 	},
 	
 	saveHistory: function(state)
@@ -449,7 +449,7 @@ SCxml.prototype={
 	preemptTransitions: function(trans)
 	{
 		var t=trans[0] // the first one can never be preempted
-		t.lcca=this.findLCCA(t.parentNode, t.targets)
+		this.findLCCA(t)
 		if(trans.length<2) return trans
 
 		var filtered=[trans[0]]
@@ -461,7 +461,7 @@ SCxml.prototype={
 				if(t==p || (p.lcca && p.lcca.querySelector(
 					"[id="+t.parentNode.getAttribute("id")+"]")))
 					continue overTransitions // t is preempted
-			t.lcca=this.findLCCA(t.parentNode, t.targets)
+			this.findLCCA(t)
 			filtered.push(t)
 		}
 		return filtered
@@ -520,6 +520,7 @@ SCxml.prototype={
 			var s=this.dom.createNodeIterator(t.lcca,
 				NodeFilter.SHOW_ELEMENT, SCxml.activeStateFilter)
 			var rev=[], v
+			if(t.internal) s.nextNode()
 			while(v=s.nextNode()) rev.push(v)
 			rev.reverse().forEach(this.saveHistory, this)
 			rev.forEach(this.exitState, this)
@@ -587,9 +588,11 @@ SCxml.prototype={
 		this.externalQueue.push(event)
 		if(this.stable)
 			this.extEventLoop()
-	}	
-	
+	}
 }
+
+SCxml.prototype.fireEvent=SCxml.prototype.onEvent
+
 
 SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel', 'final': 'final'}
 
