@@ -192,6 +192,7 @@ SCxml.prototype={
 		if(init instanceof Array) this.addStatesToEnter( init )
 		else this.addStatesToEnter( [init] )
 		this.statesToEnter.inEntryOrder().forEach(this.enterState,this)
+		console.log(this.name+"'s initial configuration: "+this.statesToEnter)
 		this.mainEventLoop()
 	},
 	
@@ -491,6 +492,7 @@ SCxml.prototype={
 
 	extEventLoop: function()
 	{
+		console.log(this.name+"'s new configuration: "+this.statesToEnter)
 		var conf=this.sortedConfiguration()
 		this.stable=false
 		// consume external events
