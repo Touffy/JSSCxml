@@ -358,7 +358,7 @@ SCxml.prototype={
 		// determine transition type
 		// get Least Common Compound Ancestor
 		if(source.querySelectorAll(ids).length==targets.length)
-			trans.internal=true
+			trans.internal=(trans.getAttribute("type")=="internal")
 		else while((trans.lcca=trans.lcca.parentNode)
 			.querySelectorAll(ids).length<targets.length );
 	},
