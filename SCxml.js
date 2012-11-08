@@ -29,7 +29,7 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	this.dom=null
 	
 	this.interpretASAP=interpretASAP
-	this.pauseBefore=SCxml.NO_PAUSE
+	this.autoPauseBefore=SCxml.NO_PAUSE
 	this.nextPauseBefore=SCxml.NO_PAUSE
 	
 	this.internalQueue=[]
@@ -40,7 +40,13 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	
 	this.sid=SCxml.sessions.length
 	SCxml.sessions.push(this)
-	this.html=htmlContext||window.document.documentElement
+	if(htmlContext && htmlContext instanceof Element)
+		this.html=htmlContext
+	else{
+		this.html=document.createElement("scxml")
+		this.html.interpreter=this
+		document.head.appendChild(this.html)
+	}
 	
 	this.initIframe(data)
 	
@@ -68,9 +74,8 @@ SCxml.sessions=[null]
 
 SCxml.LOADING=0
 SCxml.READY=1
-SCxml.INITIALIZED=2
-SCxml.RUNNING=3
-SCxml.FINISHED=4
+SCxml.RUNNING=2
+SCxml.FINISHED=3
 
 
 /*
@@ -183,12 +188,12 @@ SCxml.prototype={
 		this.running=true
 		console.log("The interpreter for "+this.name+" is now ready.")
 		this.readyState=SCxml.READY
-		this.html.dispatchEvent(new Event("ready", false, false))
+		this.html.dispatchEvent(new Event("ready"))
 		
-		if(this.interpretASAP) this.init()
+		if(this.interpretASAP) this.start()
 	},
 	
-	init: function()
+	start: function()
 	{
 		if(this.readyState<SCxml.READY) throw this.name+" is not ready yet."
 		if(this.readyState>SCxml.READY) throw this.name+" has already started."
@@ -201,18 +206,14 @@ SCxml.prototype={
 		
 		this.statesToEnter.inEntryOrder().forEach(this.enterState,this)
 		console.log(this.name+"'s initial configuration: "+this.statesToEnter)
+		this.readyState++
 		this.mainEventLoop()
 	},
 	
-	pause: function(macrostep)
+	pauseNext: function(macrostep)
 	{
 		this.nextPauseBefore=1-!!macrostep
-		// todo: pause timers
-	},
-	resume: function()
-	{
-		this.nextPauseBefore=0
-		//if(!this.running || this.paused)
+		if(this.stable) this.pause()
 	},
 	
 	// find the initial state in the document or in a <state>;
@@ -349,7 +350,8 @@ SCxml.prototype={
 		{
 			this.running=false
 			this.stable=true
-			console.log(this.name+" reached top-level final state: Terminated.")
+			this.readyState=SCxml.FINISHED
+			this.html.dispatchEvent(new Event("finished"))
 			return
 		}
 		
@@ -499,7 +501,8 @@ SCxml.prototype={
 	
 	mainEventLoop: function()
 	{
-		if(this.nextPauseBefore==2) return this.pause(2)
+		if(this.nextPauseBefore>=2) return this.pause()
+		if(this.autoPauseBefore==2) this.nextPauseBefore=2
 		
 		var conf=this.sortedConfiguration()
 		
@@ -521,9 +524,31 @@ SCxml.prototype={
 		this.extEventLoop()
 	},
 
+	// NEVER call this directly, use pauseNext() instead
+	pause: function()
+	{
+		if(this.paused || !this.running) return;
+		this.paused=true
+		this.html.dispatchEvent(new Event("pause"))
+		// todo: pause timers
+	},
+	
+	// resume a running SC
+	resume: function()
+	{
+		if(!this.running || !this.paused) return;
+		this.nextPauseBefore=0
+		this.paused=false
+		this.html.dispatchEvent(new Event("resume"))
+		this.mainEventLoop()
+	},
+
 	extEventLoop: function()
 	{
 		console.log(this.name+"'s new configuration: "+this.statesToEnter)
+		if(this.nextPauseBefore) return this.pause()
+		if(this.autoPauseBefore==1) this.nextPauseBefore=1
+
 		var conf=this.sortedConfiguration()
 		this.stable=false
 		// consume external events
@@ -622,7 +647,7 @@ SCxml.prototype={
 		if(event instanceof Event)
 			event=SCxml.ExternalEvent.fromDOMEvent(event)
 		this.externalQueue.push(event)
-		if(this.stable)
+		if(this.stable && !this.paused)
 			this.extEventLoop()
 	}
 }
