@@ -22,12 +22,15 @@ SCxmlEvent.js		authors may want to read that one
 SCxmlExecute.js		implements executable content
 */
 
-// source can be a URI, an SCXML string, or an <scxml> element
+// source can be a URI, an SCXML string or a parsed document
 // data is an object whose properties will be copied into the datamodel
 function SCxml(source, htmlContext, data, interpretASAP)
 {
 	this.dom=null
+	
 	this.interpretASAP=interpretASAP
+	this.pauseBefore=SCxml.NO_PAUSE
+	this.nextPauseBefore=SCxml.NO_PAUSE
 	
 	this.internalQueue=[]
 	this.externalQueue=[]
@@ -44,19 +47,12 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	this.running=false
 	this.stable=false
 	this.paused=false
+	this.readyState=SCxml.LOADING
 
 	this.name="session "+this.sid
 
-	if(source instanceof Element)
-	{
-		var ns=source.getAttribute("xmlns")
-		var d=document.implementation.createDocument(ns, "scxml", null)
-		for(var i=0, a; a=source.attributes[i]; i++)
-			d.documentElement.setAttribute(a.name, a.value)
-		for(var c; c=source.firstElementChild;)
-			d.documentElement.appendChild(d.adoptNode(c, true))
-		setTimeout(function(sc, dom){ sc.interpret(dom) }, 0, this, d)
-	}
+	if(source instanceof Document)
+		setTimeout(function(sc, dom){ sc.interpret(dom) }, 0, this, source)
 	else if(/^\s*</.test(source))
 	{
 		var d=new DOMParser().parseFromString(source, "application/scxml+xml")
@@ -68,8 +64,14 @@ function SCxml(source, htmlContext, data, interpretASAP)
 		new XHR(source, this, this.xhrResponse, null, this.xhrFailed)
 	}
 }
-
 SCxml.sessions=[null]
+
+SCxml.LOADING=0
+SCxml.READY=1
+SCxml.INITIALIZED=2
+SCxml.RUNNING=3
+SCxml.FINISHED=4
+
 
 /*
 Instantiates an SCxml() for each <scxml> in the HTML document,
@@ -79,13 +81,8 @@ corresponding <scxml> element
 SCxml.parseSCXMLTags=function ()
 {
 	var tags=document.getElementsByTagName("scxml")
-	for(var i=0; i<tags.length; i++)
-	{
-		if(tags[i].hasAttribute("src"))
-			tags[i].interpreter=new SCxml(tags[i].getAttribute("src"), tags[i])
-		else
-			tags[i].interpreter=new SCxml(tags[i], tags[i])
-	}
+	for(var i=0; i<tags.length; i++) tags[i].interpreter
+		=new SCxml(tags[i].getAttribute("src"), tags[i], null, true)
 }
 
 SCxml.prototype={
@@ -185,15 +182,37 @@ SCxml.prototype={
 		
 		this.running=true
 		console.log("The interpreter for "+this.name+" is now ready.")
+		this.readyState=SCxml.READY
+		this.html.dispatchEvent(new Event("ready", false, false))
 		
-		var init=this.firstState(dom.documentElement)
+		if(this.interpretASAP) this.init()
+	},
+	
+	init: function()
+	{
+		if(this.readyState<SCxml.READY) throw this.name+" is not ready yet."
+		if(this.readyState>SCxml.READY) throw this.name+" has already started."
+		
+		var s=this.firstState(this.dom.documentElement)
 		// and... enter !
-		if(!init) throw this.name + " has no suitable initial state."
-		if(init instanceof Array) this.addStatesToEnter( init )
-		else this.addStatesToEnter( [init] )
+		if(!s) throw this.name + " has no suitable initial state."
+		if(s instanceof Array) this.addStatesToEnter( s )
+		else this.addStatesToEnter( [s] )
+		
 		this.statesToEnter.inEntryOrder().forEach(this.enterState,this)
 		console.log(this.name+"'s initial configuration: "+this.statesToEnter)
 		this.mainEventLoop()
+	},
+	
+	pause: function(macrostep)
+	{
+		this.nextPauseBefore=1-!!macrostep
+		// todo: pause timers
+	},
+	resume: function()
+	{
+		this.nextPauseBefore=0
+		//if(!this.running || this.paused)
 	},
 	
 	// find the initial state in the document or in a <state>;
@@ -362,6 +381,10 @@ SCxml.prototype={
 			trans.internal=(trans.getAttribute("type")=="internal")
 		else while((trans.lcca=trans.lcca.parentNode)
 			.querySelectorAll(ids).length<targets.length );
+		if(!trans.internal && trans.lcca==source)
+			trans.lcca=trans.lcca.parentNode
+		for(var i=0, e; e=targets[i]; i++) if(e==trans.lcca)
+			trans.lcca=trans.lcca.parentNode
 	},
 	
 	saveHistory: function(state)
@@ -433,9 +456,15 @@ SCxml.prototype={
 			while(!test(t) && (t=t.nextElementSibling));
 			if(t){
 				// also prepare a bit (just a bit)
-				if(!t.targets) t.targets= t.hasAttribute("target") ?
-					t.getAttribute("target").split(/\s+/).map(this.getById,this)
-					: null
+				if(!t.targets){
+					if(t.hasAttribute("target"))
+						t.targets=t.getAttribute("target")
+						.split(/\s+/).map(this.getById,this)
+					else if(t.hasAttribute("targetexpr"))
+						t.targets=this.expr(t.getAttribute("targetexpr"))
+						.toString().split(/\s+/).map(this.getById,this)
+					else t.targets=null
+				}
 				trans.push(t)
 				break
 			}
@@ -470,6 +499,8 @@ SCxml.prototype={
 	
 	mainEventLoop: function()
 	{
+		if(this.nextPauseBefore==2) return this.pause(2)
+		
 		var conf=this.sortedConfiguration()
 		
 		// first try eventless transition
@@ -507,6 +538,7 @@ SCxml.prototype={
 		// if we reach here, no transition could be used
 		this.stable=true
 		console.log(this.name+": waiting for external events.")
+		this.html.dispatchEvent(new Event("waiting", false, false))
 	},
 	
 	// try to follow transitions, after exiting the source states
@@ -516,13 +548,15 @@ SCxml.prototype={
 		for(var i=trans.length-1, t; t=trans[i]; i--)
 		{
 			console.log(this.name+": "+t.parentNode.getAttribute("id")
-				+" → ["+(t.getAttribute("target")||"*targetless*")+"]")
+				+" → "+(t.targets?"["+t.targets.map(
+					function(e){return e.getAttribute("id")})+"]"
+				:"*targetless*"))
 			if(!t.targets) continue
 			
 			var s=this.dom.createNodeIterator(t.lcca,
 				NodeFilter.SHOW_ELEMENT, SCxml.activeStateFilter)
 			var rev=[], v
-			if(t.internal) s.nextNode()
+			if(s.nextNode()!=t.lcca) rev.push(s.previousNode())
 			while(v=s.nextNode()) rev.push(v)
 			rev.reverse().forEach(this.saveHistory, this)
 			rev.forEach(this.exitState, this)
@@ -595,6 +629,9 @@ SCxml.prototype={
 
 SCxml.prototype.fireEvent=SCxml.prototype.onEvent
 
+SCxml.NO_PAUSE=0
+SCxml.EXT_EVENTS=1
+SCxml.ALL_EVENTS=2
 
 SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel', 'final': 'final'}
 
