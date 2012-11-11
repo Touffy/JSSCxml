@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>JSSCxml viewer</title>
+	
+	<script src="xhr.js"></script>
+	<script src="structures.js"></script>
+	<script src="SCxml.js"></script>
+	<script src="SCxmlProcessors.js"></script>
+	<script src="SCxmlDatamodel.js"></script>
+	<script src="SCxmlEvent.js"></script>
+	<script src="SCxmlExecute.js"></script>
+	
+	<style>
+@-webkit-keyframes exit{
+	from{
+		outline: 0 solid rgba(255,0,0,0.5);
+	}
+	to{
+		outline: 3pt solid rgba(255,0,0,0.5);
+	}
+}
+@-webkit-keyframes enter{
+	from{
+		outline: 0 solid rgba(0,255,0,0.7);
+	}
+	to{
+		outline: 3pt solid rgba(0,255,0,0.7);
+	}
+}
+
+body{
+	font-family: sans-serif;
+}
+
+div.scxml{
+	min-height: 12em;
+	min-width: 30em;
+}
+td{
+	vertical-align: top;
+	border: 1px solid grey;
+	width: 8em;
+}
+td input, td textarea{ width: 8em; }
+td+td+td{ width: auto; }
+td h3{
+	margin: 0;
+	font-weight: normal;
+}
+table{
+	width: 100%;
+	border-collapse: collapse;
+}
+
+state{
+	background-color: white;
+	float: left;
+	border: 1px solid grey;
+	padding: 4pt;
+	margin: 6pt;
+	box-shadow: 0px 1pt 3pt grey;
+	min-width: 3em;
+	width: auto;
+	-webkit-transition: background-color 0.7s ease-out 0;
+	outline: 0 solid white;
+}
+state.final{ border-color: red; }
+state.parallel{
+	border: 3px double grey;
+	padding: 2pt;
+}
+state h4{
+	font-size: 10pt;
+	margin: 0;
+}
+state.active{
+	background-color: #ffff69;
+	-webkit-animation: enter 0.3s linear 0 3 alternate;
+}
+state.exited{
+	-webkit-animation: exit 0.3s linear 0 3 alternate;
+}
+
+textarea{
+	font-family: monospace;
+	min-height: 20em;
+}
+h2 label, input{
+	font-size: 12pt;
+	font-weight: normal;
+}
+
+li.error{
+	color: red;
+}
+
+	</style>
+</head>
+<body>
+
+<section id="editor"><h2>Editor <input name="parse" type="button" value="Parse"></h2>
+
+<textarea cols="80"><scxml xmlns="http://www.w3.org/2005/07/scxml" initial="s1">
+<datamodel>
+  <data id="Var1" expr="0"/>  <!-- how often we have exited p -->
+  <data id="Var2" expr="0"/>  <!-- how often we have exited ps1 -->
+  <data id="Var3" expr="0"/>  <!-- how often we have exited ps2 -->
+  <data id="Var4" expr="0"/>  <!-- how often the transition for foo has been taken -->
+  </datamodel>
+    
+ <state id="s1">
+   <onentry>
+    <raise event="foo"/>
+    <raise event="bar"/>
+    </onentry>
+   <transition target="p"/>
+   </state>
+
+<parallel id="p">
+  <onexit>
+    <assign location="Var1" expr="Var1 + 1"/>
+    </onexit>
+  <transition event="foo" type="internal" target="p">
+     <assign location="Var4" expr="Var4 + 1"/>
+     </transition>
+     
+   <!-- make sure the transition on foo was actually taken --> 
+  <transition event="bar" cond="Var4==1" target="s2"/>
+  <transition event="bar" target="fail"/>
+  
+ <state id="ps1">
+   <onexit>
+   <assign location="Var2" expr="Var2 + 1"/>
+   </onexit>
+  </state>
+  <state id="ps2">
+   <onexit>
+   <assign location="Var3" expr="Var3 + 1"/>
+   </onexit>
+  </state>
+</parallel>
+  
+<state id="s2">
+  <!-- make sure that p was exited twice -->
+    <transition cond="Var1==2" target="s3"/>
+    <transition target="fail"/>
+ </state> 
+ 
+<state id="s3">
+  <!-- make sure that ps1 was exited twice -->
+    <transition cond="Var2==2" target="s4"/>
+    <transition target="fail"/>
+ </state> 
+  
+<state id="s4">
+  <!-- make sure that ps2 was exited twice -->
+    <transition cond="Var3==2" target="pass"/>
+    <transition target="fail"/>
+ </state>
+  
+<final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
+<final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+     
+</scxml></textarea>
+</section>
+
+
+
+<section id="viewer"><h2>Viewer
+<input name="run" type="button" value="Run" disabled>
+<input name="pause" type="button" value="Pause" disabled>
+<label>autoresume: <input name="speed" type="range" min="500" max="5000" value="1000"></label> (max = no autoresume)</h2>
+
+<table><tbody><tr>
+<td class="queue"><h3>internal queue</h3>
+	<ol id="internal"></ol>
+	<form name="queueInt">
+	<input type="text" name="ename" placeholder="event.name">
+	<input type="submit" value="send" disabled>
+	</form>
+</td>
+<td class="queue"><h3>external queue</h3>
+	<ol id="external"></ol>
+	<form name="queueExt">
+	<input type="text" name="ename" placeholder="event.name">
+	<input type="text" name="data" placeholder="{&quot;data&quot;:value}">
+	<input type="submit" value="send" disabled>
+	</form>
+</td>
+<td><div class="scxml"></div></td>
+</tr></tbody></table>
+
+</section>
+
+<script>
+
+function convertNode(e)
+{
+	if(!(e.tagName in SCxml.STATE_ELEMENTS))
+		return null
+	var h=document.createElement("state")
+	h.className=e.tagName
+	var id=e.getAttribute("id")
+	h.appendChild(document.createElement("h4")).textContent=id
+	h.setAttribute("scid", id)
+	for(var cn, c=e.firstElementChild; c; c=c.nextElementSibling)
+		if(cn=convertNode(c)) h.appendChild(cn)
+	return h
+}
+
+function convertSCXML(dom){
+	var d=document.createElement("div")
+	d.className="scxml"
+	for(var cn, c=dom.documentElement.firstElementChild; c; c=c.nextElementSibling)
+		if(cn=convertNode(c)) d.appendChild(cn)
+	return d
+}
+
+parse=document.querySelector("input[name=parse]")
+run=document.querySelector("input[name=run]")
+pause=document.querySelector("input[name=pause]")
+speed=document.querySelector("input[name=speed]")
+
+view=document.getElementById("viewer")
+sc=null
+intQ=document.getElementById("internal")
+extQ=document.getElementById("external")
+
+function enter(id)
+{
+	var s=document.querySelector("[scid="+id+"]")
+	s.classList.remove("exited")
+	s.classList.add("active")
+}
+function applyEnter(l){ l.forEach(enter) }
+function exit(id)
+{
+	var s=document.querySelector("[scid="+id+"]")
+	s.classList.remove("active")
+	s.classList.add("exited")
+}
+
+function clearQueues()
+{
+	var c
+	while(c=intQ.firstChild) intQ.removeChild(c)
+	while(c=extQ.firstChild) extQ.removeChild(c)
+}
+
+function queue(e)
+{
+	var h=document.createElement("li")
+	h.textContent=e.detail.name
+	if(/^error/.test(e.detail.name)) h.classList.add("error")
+	;(e.detail.type=="external"?extQ:intQ).appendChild(h)
+}
+function consume(e)
+{
+	var q=(e.detail=="external"?extQ:intQ)
+	q.removeChild(q.firstElementChild)
+}
+
+// UI listeners
+
+run.onclick=function(e)
+{
+	sc.pauseNext()
+	sc.start()
+	pause.disabled=false
+	this.disabled=true
+}
+
+pause.onclick=function(e)
+{
+	sc.pauseNext()
+	this.disabled=true
+}
+
+parse.onclick=function(e)
+{
+	pause.disabled=true
+	run.disabled=true
+	document.forms[0][1].disabled=true
+	document.forms[1][2].disabled=true
+	document.querySelector("#viewer td+td+td")
+		.removeChild(document.querySelector("#viewer div.scxml"))
+	var rm=document.head.getElementsByTagName("scxml")
+	for(var i=0; i<rm.length; i++) document.head.removeChild(rm[i])
+	clearQueues()
+
+	sc=new SCxml(document.getElementsByTagName("textarea")[0].value)
+	sc.autoPauseBefore=SCxml.ALL_EVENTS
+}
+
+document.forms[0].onsubmit=function(e){
+	if(!sc || sc.readyState<SCxml.READY || !this.ename.value) return false
+	var event=new SCxml.InternalEvent(this.ename.value)
+	sc.html.dispatchEvent(new CustomEvent("queue", {detail:event}))
+	sc.internalQueue.push(event)
+	if(sc.stable && !sc.paused) sc.mainEventLoop()
+	return false
+}
+document.forms[1].onsubmit=function(e){
+	if(!sc || sc.readyState<SCxml.READY || !this.ename.value) return false
+	var data
+	try{data=JSON.parse(this.data.value)} catch(err){}
+	sc.fireEvent(this.ename.value, data)
+	return false
+}
+
+// SCxml listeners
+
+document.head.addEventListener("ready", function(e){
+	run.disabled=false
+	document.forms[0][1].disabled=false
+	document.forms[1][2].disabled=false
+	document.querySelector("#viewer td+td+td")
+		.appendChild(convertSCXML(sc.dom))
+}, true)
+
+document.head.addEventListener("exit", function(e){
+	e.detail.list.forEach(exit)
+}, true)
+document.head.addEventListener("enter", function(e){
+	setTimeout(applyEnter, 0, e.detail.list)
+}, true)
+
+document.head.addEventListener("finished", function(e){
+	run.disabled=true
+	pause.disabled=true
+}, true)
+
+document.head.addEventListener("pause", function(e){
+	pause.disabled=false
+	pause.value="resume"
+	pause.onclick=function(e){ sc.resume() }
+	if(speed.value<5000)
+	setTimeout(pause.onclick, +speed.value)
+}, true)
+
+document.head.addEventListener("resume", function(e){
+	pause.value="pause"
+	pause.onclick=function(e)
+	{
+		sc.pauseNext()
+		this.disabled=true
+	}
+}, true)
+
+document.head.addEventListener("queue", queue, true)
+document.head.addEventListener("consume", consume, true)
+
+
+
+</script>
+
+
+</body>
+</html>
