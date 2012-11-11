@@ -75,7 +75,9 @@ SCxml.executableContent={
 	{
 		var event=element.getAttribute("event")
 			||sc.expr(element.getAttribute("eventexpr"))
-		sc.internalQueue.push(new SCxml.InternalEvent(event, element))
+		event=new SCxml.InternalEvent(event, element)
+		sc.html.dispatchEvent(new CustomEvent("queue", {detail:event}))
+		sc.internalQueue.push(event)
 	},
 	
 	send: function(sc, element)
@@ -98,7 +100,9 @@ SCxml.executableContent={
 			|| sc.expr(element.getAttribute("delayexpr")))
 
 		if(target=="#_internal"){
-			sc.internalQueue.push(new SCxml.InternalEvent(event, element))
+			var e=new SCxml.InternalEvent(event, element)
+			sc.html.dispatchEvent(new CustomEvent("queue", {detail:e}))
+			sc.internalQueue.push(e)
 			return
 		}
 		

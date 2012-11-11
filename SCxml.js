@@ -72,10 +72,9 @@ function SCxml(source, htmlContext, data, interpretASAP)
 }
 SCxml.sessions=[null]
 
-SCxml.LOADING=0
-SCxml.READY=1
-SCxml.RUNNING=2
-SCxml.FINISHED=3
+function getId(element){
+	return element.getAttribute("id")
+}
 
 
 /*
@@ -204,7 +203,9 @@ SCxml.prototype={
 		if(s instanceof Array) this.addStatesToEnter( s )
 		else this.addStatesToEnter( [s] )
 		
-		this.statesToEnter.inEntryOrder().forEach(this.enterState,this)
+		this.html.dispatchEvent(new CustomEvent("enter", {detail:{list:
+			this.statesToEnter.inEntryOrder()
+			.filter(this.enterState,this).map(getId)} }))
 		console.log(this.name+"'s initial configuration: "+this.statesToEnter)
 		this.readyState++
 		this.mainEventLoop()
@@ -212,7 +213,7 @@ SCxml.prototype={
 	
 	pauseNext: function(macrostep)
 	{
-		this.nextPauseBefore=1-!!macrostep
+		this.nextPauseBefore=2-!!macrostep
 		if(this.stable) this.pause()
 	},
 	
@@ -251,7 +252,7 @@ SCxml.prototype={
 		return state
 	},
 	
-	addStatesToEnter: function(states)
+	addStatesToEnter: function(states, lcca)
 	{
 	for(var i=0, state; state=states[i]; i++)
 	{
@@ -273,23 +274,23 @@ SCxml.prototype={
 				h=trans.getAttribute("target").split(/\s+/)
 					.map(this.getById,this)
 			}
-			this.addStatesToEnter(h)
+			this.addStatesToEnter(h, lcca)
 		}
-		else this.statesToEnter=this.walkToEnter(state, this.statesToEnter)
+		else this.statesToEnter=this.walkToEnter(state, this.statesToEnter, lcca)
 	}
 	},
 	
-	walkToEnter: function(state, tree)
+	walkToEnter: function(state, tree, lcca)
 	{
 		var path=[]
 		
-		var id=state.getAttribute('id')
+		var id=getId(state)
 
 		path.push(state)
 		var down=state, up=state
 		while(down = this.firstState(down))
 			path.push(down)
-		while((up = up.parentNode).tagName=="state")
+		while((up = up.parentNode).tagName=="state" && up!=lcca)
 			path.unshift(up)
 		
 		var ct=new CompiledTree(new CompiledPath(path))
@@ -303,7 +304,7 @@ SCxml.prototype={
 					if(tree && tree.root.path[0]==c)
 						ct.appendChild(tree)
 					else
-						this.walkToEnter(c,ct)
+						this.walkToEnter(c,ct, lcca)
 				}
 				c=c.nextElementSibling
 			}
@@ -315,8 +316,8 @@ SCxml.prototype={
 			return tree
 
 		// else, clim up to the root
-		while(ct.root.parent.tagName!="scxml")
-			ct=this.walkToEnter(ct.root.parent, ct)
+		while(ct.root.parent.tagName!="scxml" && ct.root.parent!=lcca)
+			ct=this.walkToEnter(ct.root.parent, ct, lcca)
 		
 		return ct
 	},
@@ -324,7 +325,7 @@ SCxml.prototype={
 	// add to the configuration, run the onentry stuff
 	enterState: function(state)
 	{
-		var id=state.getAttribute('id')
+		var id=getId(state)
 		if(id in this.configuration){ delete state.executeAfterEntry; return }
 		this.configuration[id]=state
 		state.setAttribute("active",true)
@@ -341,7 +342,8 @@ SCxml.prototype={
 		
 		state.fin=true
 		if(state.tagName=="final")
-			this.finalState(state.parentNode)
+			return this.finalState(state.parentNode)
+		return true
 	},
 
 	finalState: function(state)
@@ -352,7 +354,7 @@ SCxml.prototype={
 			this.stable=true
 			this.readyState=SCxml.FINISHED
 			this.html.dispatchEvent(new Event("finished"))
-			return
+			return true
 		}
 		
 		if(state.tagName=="parallel")
@@ -360,10 +362,13 @@ SCxml.prototype={
 				if(c.tagName in SCxml.STATE_ELEMENTS && !c.fin) return;
 		
 		state.fin=true
-		var id=state.getAttribute('id')
-		this.internalQueue.push(new SCxml.Event("done.state."+id))
+		var id=getId(state)
+		var doneEv=new SCxml.Event("done.state."+id)
+		this.html.dispatchEvent(new CustomEvent("queue", {detail:doneEv}))
+		this.internalQueue.push(doneEv)
 		if(state.parentNode.tagName=="parallel")
 			this.finalState(state.parentNode)
+		return true
 	},
 
 	findLCCA: function(trans)
@@ -374,7 +379,7 @@ SCxml.prototype={
 		trans.lcca=source
 		var ids=targets.map(function (e){
 				if(e.tagName=="history") e=e.parentNode
-				var id=e.getAttribute("id")
+				var id=getId(e)
 				return "state[id="+id+"], final[id="+id+"], history[id="+id+"], parallel[id="+id+"]"})
 			.join(", ")
 		// determine transition type
@@ -391,7 +396,7 @@ SCxml.prototype={
 	
 	saveHistory: function(state)
 	{
-		var id=state.getAttribute('id')
+		var id=getId(state)
 		if(!(id in this.configuration)) return;
 		
 		var histories=this.dom.querySelectorAll("[id="+id+"] > history")
@@ -403,7 +408,7 @@ SCxml.prototype={
 	// and don't forget to run the onexit blocks before
 	exitState: function(state)
 	{
-		var id=state.getAttribute('id')
+		var id=getId(state)
 		if(!(id in this.configuration)) return;
 		
 		var onexit=this.dom.querySelectorAll("[id="+id+"] > onexit")
@@ -413,6 +418,7 @@ SCxml.prototype={
 
 		delete this.configuration[id]
 		state.removeAttribute("active")
+		return true
 	},
 
 	// wrapper for eval, to handle expr and similar attributes
@@ -429,7 +435,9 @@ SCxml.prototype={
 	// including the SCXML element that started it
 	// (we can't determine the SCXML line number)
 	error: function(name, src, err){
-		this.internalQueue.push(new SCxml.Error("error."+name, src, err))
+		var e=new SCxml.Error("error."+name, src, err)
+		this.html.dispatchEvent(new CustomEvent("queue", {detail:e}))
+		this.internalQueue.push(e)
 		console.error(err+"\nin SCXML "+this.name+" :", src)
 		throw(err)
 	},
@@ -491,7 +499,7 @@ SCxml.prototype={
 		{
 			for(var j=0, p; p=filtered[j]; j++)
 				if(t==p || (p.lcca && p.lcca.querySelector(
-					"[id="+t.parentNode.getAttribute("id")+"]")))
+					"[id="+getId(t.parentNode)+"]")))
 					continue overTransitions // t is preempted
 			this.findLCCA(t)
 			filtered.push(t)
@@ -514,6 +522,7 @@ SCxml.prototype={
 		var event
 		while(event=this.internalQueue.shift())
 		{
+			this.html.dispatchEvent(new CustomEvent("consume", {detail:"internal"}))
 			this.datamodel._event=event
 			trans=this.selectTransitions(event, conf)
 			if(trans.length) return this.takeTransitions(trans)
@@ -545,8 +554,7 @@ SCxml.prototype={
 
 	extEventLoop: function()
 	{
-		console.log(this.name+"'s new configuration: "+this.statesToEnter)
-		if(this.nextPauseBefore) return this.pause()
+		if(this.nextPauseBefore==1) return this.pause()
 		if(this.autoPauseBefore==1) this.nextPauseBefore=1
 
 		var conf=this.sortedConfiguration()
@@ -555,6 +563,7 @@ SCxml.prototype={
 		var event, trans
 		while(event=this.externalQueue.shift())
 		{
+			this.html.dispatchEvent(new CustomEvent("consume", {detail:"external"}))
 			this.datamodel._event=event
 			trans=this.selectTransitions(event,conf)
 			if(trans) return this.takeTransitions(trans)
@@ -563,7 +572,7 @@ SCxml.prototype={
 		// if we reach here, no transition could be used
 		this.stable=true
 		console.log(this.name+": waiting for external events.")
-		this.html.dispatchEvent(new Event("waiting", false, false))
+		this.html.dispatchEvent(new Event("waiting"))
 	},
 	
 	// try to follow transitions, after exiting the source states
@@ -572,9 +581,8 @@ SCxml.prototype={
 		// first exit all the states that must be exited
 		for(var i=trans.length-1, t; t=trans[i]; i--)
 		{
-			console.log(this.name+": "+t.parentNode.getAttribute("id")
-				+" → "+(t.targets?"["+t.targets.map(
-					function(e){return e.getAttribute("id")})+"]"
+			console.log(this.name+": "+getId(t.parentNode)
+				+" → "+(t.targets?"["+t.targets.map(getId)+"]"
 				:"*targetless*"))
 			if(!t.targets) continue
 			
@@ -584,7 +592,8 @@ SCxml.prototype={
 			if(s.nextNode()!=t.lcca) rev.push(s.previousNode())
 			while(v=s.nextNode()) rev.push(v)
 			rev.reverse().forEach(this.saveHistory, this)
-			rev.forEach(this.exitState, this)
+			this.html.dispatchEvent(new CustomEvent("exit", {detail:
+				{list: rev.filter(this.exitState, this).map(getId)} }))
 			s.detach()
 		}
 		
@@ -592,15 +601,17 @@ SCxml.prototype={
 		for(i=0; t=trans[i]; i++)
 		{
 			try{ this.execute(t) }
-			catch(err){ throw err }
+			catch(err){}
 		}
 
 		this.statesToEnter=null
 		// then enter all the states to enter
 		for(i=0; t=trans[i]; i++) if(t.targets)
-			this.addStatesToEnter(t.targets)
+			this.addStatesToEnter(t.targets, t.lcca)
 		if(this.statesToEnter)
-			this.statesToEnter.inEntryOrder().forEach(this.enterState,this)
+			this.html.dispatchEvent(new CustomEvent("enter", {detail:{list:
+				this.statesToEnter.inEntryOrder()
+				.filter(this.enterState,this).map(getId)} }))
 		if(this.running) this.mainEventLoop()
 	},
 
@@ -637,7 +648,7 @@ SCxml.prototype={
 	},
 	
 	// handles external events
-	onEvent:function onEvent(event)
+	onEvent:function(event)
 	{
 		if(!this.running)
 		{
@@ -646,6 +657,9 @@ SCxml.prototype={
 		}
 		if(event instanceof Event)
 			event=SCxml.ExternalEvent.fromDOMEvent(event)
+		else if((typeof event) == "string")
+			event=new SCxml.ExternalEvent(event, null, undefined, null, arguments[1])
+		this.html.dispatchEvent(new CustomEvent("queue", {detail:event}))
 		this.externalQueue.push(event)
 		if(this.stable && !this.paused)
 			this.extEventLoop()
@@ -657,6 +671,11 @@ SCxml.prototype.fireEvent=SCxml.prototype.onEvent
 SCxml.NO_PAUSE=0
 SCxml.EXT_EVENTS=1
 SCxml.ALL_EVENTS=2
+
+SCxml.LOADING=0
+SCxml.READY=1
+SCxml.RUNNING=2
+SCxml.FINISHED=3
 
 SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel', 'final': 'final'}
 
