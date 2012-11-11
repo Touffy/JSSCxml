@@ -185,7 +185,6 @@ SCxml.prototype={
 		this.lateBinding=lb
 		
 		this.running=true
-		console.log("The interpreter for "+this.name+" is now ready.")
 		this.readyState=SCxml.READY
 		this.html.dispatchEvent(new Event("ready"))
 		
