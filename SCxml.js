@@ -205,7 +205,6 @@ SCxml.prototype={
 		this.html.dispatchEvent(new CustomEvent("enter", {detail:{list:
 			this.statesToEnter.inEntryOrder()
 			.filter(this.enterState,this).map(getId)} }))
-		console.log(this.name+"'s initial configuration: "+this.statesToEnter)
 		this.readyState++
 		this.mainEventLoop()
 	},
