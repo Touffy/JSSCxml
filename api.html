@@ -1,0 +1,168 @@
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>JSSCxml API documentation</title>
+	<style>
+h1{ font-weight: normal; }
+article h1{
+	background-color: #d7fbc1;
+}
+article{
+	margin-bottom: 2em;
+}
+	</style>
+</head>
+<body>
+
+<h1>JSSCxml API</h1>
+
+<nav><ol>
+	<li><a href="#constructor">Constructor</a></li>
+	<li><a href="#methods">Methods and properties of SCxml instances</a></li>
+	<li><a href="#events">Events</a></li>
+</ol></nav>
+
+<section id="constructor"><h1>Constructor</h1>
+
+<article>
+<h1><code>new <strong>SCxml</strong>(mixed <var>source</var>, Element <var>anchor</var>, Object <var>data</var>, boolean <var>interpretASAP</var>)</code></h1>
+
+<p>returns an interpreter instance, attempts to retrieve and parse the <var>source</var>, attaches to the supplied <var>anchor</var>, and starts running as soon as possible if <var>interpretASAP</var> is <code>true</code>.</p>
+
+<dl>
+	<dt><var>source</var></dt>
+	<dd>Required</dd>
+	<dd>Can be a URL, a Document or an SCXML source string. If it is a string starting with "&lt;", JSSC will try to interpret it as SCXML source code. If it is a URL string, JSSC will send an HTTP request to retrieve it, subject to the usual Cross-Domain restrictions. If <var>source</var> is an instance of Document, JSSC will simply use it (note that the Document itself, not a copy, will be used).</dd>
+	
+	<dt><var>anchor</var></dt>
+	<dd>Default: special</dd>
+	<dd>If you provide an Element here, the interpreter will “attach” to that Element (most importantly, DOM Events sent by the interpreter will be targetted at that Element). If you give a falsy value to this argument, JSSC will create an &lt;scxml&gt; element to use as this interpreter's anchor, and append it to the HTML document's &lt;head&gt;. Note that the anchor Element will have an <code>interpreter</code> property pointing to the interpreter instance.</dd>
+	
+	<dt><var>data</var></dt>
+	<dd>Default: null</dd>
+	<dd>Must be an Object. That Object's properties will be available to JavaScript code within the SC, e.g. in <code>expr</code> attribute values and <code>&lt;script&gt;</code> content. It is the recommended way to include libraries and share objects with the SC.</dd>
+	
+	<dt><var>interpretASAP</var></dt>
+	<dd>Default: false</dd>
+	<dd>If this is <code>true</code>, the interpreter will start running as soon as possible, i.e. at the time its readyState changes to READY. Otherwise, it will only parse and validate the SCXML document, then wait for your call to start().</dd>
+</dl>
+</article>
+
+<article><h1><code>SCxml.<strong>sessions</strong></code></h1>
+
+<p>An Array of all JSSCxml sessions (interpreters) on the page, indexed by their session ID. Because the SID is never lower than 1, <code>SCxml.sessions[0]</code> is always <code>null</code> and the array's length is one larger than the number of sessions ever created.</p>
+<p>You should <em>never</em> modify this array, only use it to access sessions.</p>
+</article>
+
+<article><h1><code>SCxml.<strong>parseSCXMLTags</strong>()</code></h1>
+
+<p>finds all <code>&lt;scxml&gt;</code> elements on the page, and creates an SCXML instance for them if they have a <code>src</code> attribute. The instance is anchored to the <code>&lt;scxml&gt;</code> element and will start running automatically (<var>interpretASAP</var> is <code>true</code>).</p>
+
+</article>
+
+<article><h1>new <code>SCxml.<strong>ExternalEvent</strong>(string <var>name</var>, string <var>origin</var>, string <var>origintype</var>, number <var>invokeid</var>, any <var>data</var>)</code></h1>
+
+<p>returns an instance of JSSC's representation for external events, suitable for passing to the fireEvent() method.</p>
+
+<p>The meaning of the arguments is defined in the SCXML recommendation: <a href="http://www.w3.org/TR/scxml/#InternalStructureofEvents">5.11.1 The Internal Structure of Events</a>. Only <var>name</var> (the first one) is required.</p>
+</article>
+
+</section>
+
+<section id="methods"><h1>Methods and properties of SCxml instances</h1>
+
+<article><h1><code>start()</code></h1>
+
+<p>if the instance is ready, starts running it. That's all.</p>
+</article>
+
+<article><h1><code>pauseNext(boolean <var>macrostep</var>)</code></h1>
+
+<p>will pause the interpreter before the next microstep, or macrostep if the argument is <code>true</code>. Note that this method returns before the interpreter is actually paused, unless it was stable.</p>
+
+<p>Warning: at this time, delayed events can and will be added (but not processed) while the interpreter is paused, which may cause your SC to behave differently than normal when using the pause functionnality to debug it.</p>
+</article>
+
+<article><h1><code>resume()</code></h1>
+
+<p>immediately resumes a paused interpreter.</p>
+</article>
+
+<article><h1><code>fireEvent(mixed event)</code><br>
+<code>fireEvent(string name, any data)</code></h1>
+
+<p>if the interpreter is running, appends an event to its external queue. If the interpreter was waiting, tries to take transitions with the new event.</p>
+
+<dl>
+	<dt><var>event</var></dt>
+	<dd>Required in the one-argument version</dd>
+	<dd>an instance of SCxml.Event will be used directly. JSSC also natively supports instances of window.Event (a DOM Event), which are converted into an SCxml.ExternalEvent before being queued. In that case, the DOM event's type property is used for the SCxml.Event's name, and all the DOM event's properties will be available in the SCXML system variable <code>_event.data</code>.</dd>
+
+	<dt><var>name</var></dt>
+	<dd>Required in the two-arguments version</dd>
+	<dd>the new event's name</dd>
+	
+	<dt><var>data</var></dt>
+	<dd>Default: undefined</dd>
+	<dd>in the two-arguments version: the new event's data, which can be anything</dd>
+</dl>
+</article>
+
+<article><h1><code>readyState</code></h1>
+<p>is one of:</p>
+<ol start="0">
+<li>SCxml.LOADING</li>
+<li>SCxml.READY</li>
+<li>SCxml.RUNNING</li>
+<li>SCxml.FINISHED</li>
+</ol>
+</article>
+
+<article><h1><code>dom</code></h1>
+<p>references the SCXML Document that the instance is interpreting. At this time, modifications to the Document after the instance is created can have strange consequences.</p>
+</article>
+
+<article><h1><code>configuration</code></h1>
+<p>An object whose enumarable properties reference each active state by their id. It is <em>not</em> ordered.</p>
+</article>
+
+</section>
+
+<section id="events"><h1>Events</h1>
+
+<p>These DOM events will be fired at the SCxml instance's anchor when the right conditions are met.</p>
+
+<article><h1>ready</h1>
+<p>fired when the interpreter has parsed and validated the source, and is ready to start. It will then start immediately if <var>interpretASAP</var> was true.</p>
+</article>
+
+<article><h1>pause</h1>
+<p>fired when the interpreter pauses (automatically or after a pauseNext() call).</p>
+</article>
+
+<article><h1>finished</h1>
+<p>fires when the interpreter reaches a top-level final state and terminates.</p>
+</article>
+
+<article><h1>waiting</h1>
+<p>fires whenever the interpreter becomes stable and has no more events to process.</p>
+</article>
+
+<article><h1>exit</h1>
+<p>fires when states are exited during transitions. The event's <code>detail</code> property is a list of the exited states' ids.</p>
+</article>
+<article><h1>enter</h1>
+<p>fires when states are entered during transitions. The event's <code>detail</code> property is a list of the entered states' ids.</p>
+</article>
+
+<article><h1>queue</h1>
+<p>fires whenever an event is added to one of the queues (for whatever reason, like an error.execution, a <code>&lt;raise&gt;</code> element or your own call to fireEvent()). The <code>detail</code> property references the new event.</p>
+</article>
+<article><h1>consume</h1>
+<p>fires whenever an event is consumed from one of the queues. The <code>detail</code> property contains the string "internal" or "external", depending on the queue the event was taken from.</p>
+</article>
+
+</section>
+
+</body>
+</html>

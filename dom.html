@@ -13,16 +13,30 @@
 	<script src="SCxmlExecute.js"></script>
 	
 	<style>
+@-webkit-keyframes glowblink{
+	from{ outline-color: rgba(255, 0, 0, 1); }
+	to{ outline-color: rgba(255, 120, 0, 0.2); }
+}
+
 scxml { display: none; }
+.hilited {
+	outline: 3px solid rgba(255, 0, 0, 0.8);
+	-webkit-animation-name: glowblink;
+	-webkit-animation-duration: 0.5s;
+	-webkit-animation-iteration-count: infinite;
+	-webkit-animation-direction: alternate;
+}
 	</style>
 </head>
 <body>
 
-<p>This document contains a button and an SCxml element initialized with a simple SC. When you click the button, it relays the "click" DOM event to the SCxml interpreter. In response, the interpreter just fires a bubbling custom event, which is handled by an event listener in the body, which shows an alert.</p>
+<p>This document contains a button and an SCxml element initialized with a simple SC. When you click the button, it relays the "click" DOM event to the SCxml interpreter. In response, the interpreter just fires a bubbling custom event, which is handled by an event listener in the body, which outlines another element in the interface.</p>
 
 <scxml src="uitest.scxml"></scxml>
 
 <input type="button" value="send an event to the SC">
+
+<input type="button" id="i1" disabled value="show me off by clicking the other button">
 
 <script>
 
@@ -34,12 +48,14 @@ document.getElementsByTagName("input")[0].addEventListener("click", function(e)
 
 // the listener doesn't have to be on the SCXML itself,
 // it can be further up because the event bubbles
-document.body.addEventListener("sayHello", function(e)
-{
-	window.alert("Just received an event bubbling from the SCXML element,\n"
-		+"check the console for the data object.")
-	console.log(e.detail)
-}, false)
+hilited=null
+document.body.addEventListener("hilight", function(e) {
+	if(hilited) hilited.classList.remove("hilited")
+	;(hilited=e.target).classList.add("hilited") }, false)
+
+// doesn't need to be targetted at the currently hilited element
+document.body.addEventListener("unhilight", function(e) {
+	if(hilited) hilited.classList.remove("hilited")}, false)
 
 </script>
 

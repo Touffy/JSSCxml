@@ -22,9 +22,6 @@ SCxml.EventProcessors={
 			} // TODO
 		}
 	},
-	basichttp:{
-		name:"http://www.w3.org/TR/scxml/#BasicHTTPEventProcessor"
-	},
 	DOM:{
 		name:"http://www.w3.org/TR/scxml/#DOMEventProcessor",
 		createEvent: function(name, sc, data)

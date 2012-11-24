@@ -75,7 +75,9 @@ SCxml.executableContent={
 	{
 		var event=element.getAttribute("event")
 			||sc.expr(element.getAttribute("eventexpr"))
-		sc.internalQueue.push(new SCxml.InternalEvent(event, element))
+		event=new SCxml.InternalEvent(event, element)
+		sc.html.dispatchEvent(new CustomEvent("queue", {detail:event}))
+		sc.internalQueue.push(event)
 	},
 	
 	send: function(sc, element)
@@ -98,7 +100,9 @@ SCxml.executableContent={
 			|| sc.expr(element.getAttribute("delayexpr")))
 
 		if(target=="#_internal"){
-			sc.internalQueue.push(new SCxml.InternalEvent(event, element))
+			var e=new SCxml.InternalEvent(event, element)
+			sc.html.dispatchEvent(new CustomEvent("queue", {detail:e}))
+			sc.internalQueue.push(e)
 			return
 		}
 		
@@ -198,7 +202,7 @@ SCxml.executableContent={
 		var a=sc.expr(element.getAttribute("array"))
 		var v=element.getAttribute("item")
 		var i=element.getAttribute("index")
-		if(!(a instanceof sc.datamodel.Object || "string"==typeof a))
+		if(("object"!=typeof a) && ("string"!=typeof a))
 			sc.error("execution",element,new TypeError("Invalid array"))
 		if(i && !/^(\$|[^\W\d])[\w$]*$/.test(i))
 			sc.error("execution",element,new SyntaxError("Invalid index"))

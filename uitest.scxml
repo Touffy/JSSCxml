@@ -1,18 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" datamodel="ecmascript">
-
-<datamodel>
-	<data id="var1" expr="1"/>
-	<data id="var2" expr="2"/>
-</datamodel>
+<scxml xmlns="http://www.w3.org/2005/07/scxml">
 
 <state id="s0">
 	<transition event="click" target="s0">
-		<send event="sayHello" type="DOM" target="." namelist="var1 var2">
-			<param name="var2" expr="3"/>
-			<param name="var2" loc="var2*2"/>
-			<param name="var3" expr="3"/>
-		</send>
+		<send event="hilight" type="DOM" target="//input[2]" />
+		<send event="unhilight" type="DOM" delay="3s" target="body"/>
 	</transition>
 </state>
 
