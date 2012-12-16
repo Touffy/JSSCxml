@@ -1,0 +1,48 @@
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>JSSCxml &lt;fetch&gt; documentation</title>
+	<style>
+h1{ font-weight: normal; }
+article h1{
+	background-color: #d7fbc1;
+}
+article{
+	margin-bottom: 2em;
+}
+	</style>
+</head>
+<body>
+
+<h1>JSSCxml <code>&lt;fetch&gt;</code></h1>
+
+<p>The <code>&lt;fetch&gt;</code> element can be used wherever executable content is allowed and has a structure similar to <code>&lt;send&gt;</code>. It provides SCXML running on Web clients with easy access to the familiar HttpRequest facility used in most Web applications, and, unlike <code>&lt;send&gt;</code>, it makes the HTTP response available to the calling SCXML instance by sending callback events.</p>
+
+<section><h1>Attribute detail</h1>
+
+<table><thead><tr>
+<th>Name</th><th>Required</th><th>Type</th><th>Default value</th><th>Valid values</th><th>Description</th></tr>
+</thead><tbody>
+<tr><td>callback</td><td rowspan="2">false, and no more than one of those two</td><td>EventType.datatype</td><td>none</td><td></td><td>Name of the event that will be sent when the HTTP response is available.</td></tr>
+<tr><td>callbackexpr</td><td>Vale expression</td><td>none</td><td></td><td>Evaluates when the <code>&lt;fetch&gt;</code> element is executed, used as if there had been a <code>callback</code> attribute with the resulting value.</td></tr>
+
+<tr><td>target</td><td rowspan="2">true, and only one of those two</td><td>URI</td><td>none</td><td>Any value accepted by XmlHttpRequest()</td><td>The request wil be sent there.</td></tr>
+<tr><td>targetexpr</td><td>Vale expression</td><td>none</td><td></td><td>Evaluates when the <code>&lt;fetch&gt;</code> element is executed, used as if there had been a <code>target</code> attribute with the resulting value.</td></tr>
+
+<tr><td>type</td><td>false</td><td>Fetch.datatype</td><td>text</td><td>one of ["text", "url", "json", "xml"]</td><td>The request data will be serialized, and its MIME type selected, according to this value.</td></tr>
+</tbody></table>
+
+<p>The <code>&lt;fetch&gt;</code> element also implements the <code>namelist</code> attribute in exactly the same way as <code>&lt;send&gt;</code>.</p>
+</section>
+
+<section><h1>Children</h1>
+<ul>
+	<li>0 or more <code>&lt;param&gt;</code> elements, treated as usual. Those elements only contribute to the request's body.</li>
+	<li>0 or more <code>&lt;header&gt;</code> elements, with the same syntax as <code>&lt;param&gt;</code>, but only contribute to the request's headers. Unlike <code>&lt;param&gt;</code>, multiple <code>&lt;header&gt;</code>s with the same name (or the same name as a predefined header) will result in only the last value (in document order) being used for that header.</li>
+	<li>0 or one <code>&lt;content&gt;</code> element; if present, there should be no sibling <code>&lt;param&gt;</code> elements and namelist values will be ignored, as this element's contents will be used as the entire data for the request.</li>
+</ul>
+</section>
+
+
+</body>
+</html>
