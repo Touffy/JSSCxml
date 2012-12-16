@@ -8,6 +8,7 @@ SCxml.EventProcessors={
 		},
 		send: function(event, target, element, sc)
 		{
+			target=target||"#_scxml_"+sc.sid
 			console.log("sending a "+event.name+" event to "+target)
 			var sid
 			if((sid=target.match(/^#_scxml_(.+)$/)) && (sid=sid[1]))

@@ -84,7 +84,6 @@ SCxml.executableContent={
 	{
 		var target=element.getAttribute("target")
 			||sc.expr(element.getAttribute("targetexpr"))
-			||"#_scxml_"+sc.sid
 		var event=element.getAttribute("event")
 			||sc.expr(element.getAttribute("eventexpr"))
 
