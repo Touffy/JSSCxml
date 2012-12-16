@@ -3,14 +3,14 @@ JSSCxml
 
 A JavaScript State Chart interpreter that should fully implement the W3C's upcoming [SCXML recommendation](http://www.w3.org/TR/scxml/) in Web browsers.
 
-The name should be pronounced "JessieXML".
+The name should be pronounced "JessieXML" or just "Jessie".
+
+It is distributed under a MIT license.
 
 
 ### Development status
 
-The interpreter is currently limited to local events (you can send/receive events between SCs inside the same browser window, receive external events from JavaScript within that window, and fire back DOM events).
-
-It is also limited to local JavaScript data and external SCXML files fetched through XmlHttpRequest.
+You can `<send>` events with type="scxml" between SCs inside the same browser window, receive external events from SCs or JavaScript within that window, and fire type="DOM" events. A custom `<fetch>` element is in development to provide access to HTTP requests. JSSC does not yet support `<invoke>`.
 
 
 ### Known issues
