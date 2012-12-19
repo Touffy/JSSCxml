@@ -43,6 +43,15 @@ article{
 </ul>
 </section>
 
+<section><h1>Behavior</h1>
+<p>When executed, the <code>&lt;fetch&gt;</code> element causes an <a href="http://www.w3.org/TR/XMLHttpRequest/">XMLHttpRequest</a> to be sent to the specified target.</p>
+
+<ul><li>If the target is invalid and detected as such immediately, an <code>error.communication.<var>callback</var></code> (where <var>callback</var> is the value supplied by the <code>callback</code> or <code>callbackexpr</code> attributes) is placed into the internal queue.</li>
+<li>If the target is unreachable or denied by security restrictions (in fact, any error raised asynchronously by the XMLHttpRequest object), a <code><var>callback</var>.failed</code> event is placed in the external queue, with the XMLHttpRequest object in its data field. Note that the user may see the exact reason in the JavaScript console, but client-side script does not have access to it and thus cannot tell it to the calling SCXML.</li>
+<li>Otherwise, once the response has been retrieved, and even if it bears an error code (such as 404 or 500), a <code><var>callback</var>.done</code> event is placed in the external queue, with the XMLHttpRequest object in its data field. You can use conditions such as <code>cond="_event.data.status==200"</code> to further separate the outcomes.</li>
+</ul>
+</section>
+
 
 </body>
 </html>
