@@ -14,12 +14,6 @@ SCxml.xFetch={
 		for(k in o) if(o.hasOwnProperty(k)) s.push(k+"="+encodeURIComponent(o[k]))
 		return s.join("&")
 	},
-	types:{
-		"json": JSON.stringify,
-		"xml": SCxml.xFetch.xmls,
-		"url": SCxml.xFetch.urls,
-		"text": String
-	},
 	mime:{ // default Content-Type for each <fetch> type
 		"json": "application/json",
 		"xml": "application/xml",
@@ -31,28 +25,37 @@ SCxml.xFetch={
 		this.target=target
 		this.callback=callback
 		this.caller=caller
+		var xhr=this
 		
 		with(this.req=new XMLHttpRequest())
 		{
 			open(postData?"POST":"GET",target,true)
-			onreadystatechange=XHR.handler(this)
+			onload = function(){ xhr.caller.fireEvent(
+				new SCxml.ExternalEvent(xhr.callback+".done",
+				xhr.target, "http", null, xhr.req))
+			}
+			onerror = function(e){
+				if(xhr.bad) return;
+				xhr.caller.fireEvent(new SCxml.ExternalEvent(
+				xhr.callback+".failed", xhr.target, "http", null, xhr.req))
+			}
 			for(var h in headers)
 				setRequestHeader(h, headers[h])
-			send(postData || null)
+			try{send(postData || null)}
+			catch(err){
+				this.bad=true
+				caller.error( "communication."+callback, target, err, true)
+			}
 		}
-	},
-	handler:function (xhr)
-	{
-		function f()
-		{
-			if(xhr.req.readyState==4) xhr.caller.fireEvent(
-				new SCxml.ExternalEvent(xhr.callback, xhr.target,
-					"http", null, xhr.req))
-		}
-		return f
-	},
-
+	}
 }
+SCxml.xFetch.types={
+	"json": JSON.stringify,
+	"xml": SCxml.xFetch.xmls,
+	"url": SCxml.xFetch.urls,
+	"text": String
+}
+
 
 SCxml.prototype.xFetchReadHeaders=function(element, headers)
 {
@@ -76,11 +79,11 @@ SCxml.executableContent.fetch=function(sc, element)
 		||sc.expr(element.getAttribute("typeexpr"))
 		||"text"
 	var proc
-	if(type in SCxml.xFtech.types)
-		proc=SCxml.xFtech.types[type]
+	if(type in SCxml.xFetch.types)
+		proc=SCxml.xFetch.types[type]
 	if("function" != typeof proc)
 		sc.error("execution",element,
-			new Error('unsupported fetch type "'+proc+'"'))
+			new Error('unsupported fetch type "'+type+'"'))
 
 	var namelist=element.getAttribute("namelist")
 	var data={}
@@ -91,11 +94,10 @@ SCxml.executableContent.fetch=function(sc, element)
 			data[name]=sc.expr(name)
 	}
 	sc.readParams(element, data)
-	var headers={"Content-Type":SCxml.xFtech.mime[type]}
+	var headers={"Content-Type":SCxml.xFetch.mime[type]}
 	sc.xFetchReadHeaders(element, headers)
 	var c=element.firstElementChild
-	if(c && c.tagName=="content")
-		data=c.textContent
+	if(c && c.tagName=="content") data=c.textContent
 	
 	new SCxml.xFetch.Request(target, sc, event, headers, data)
 }
