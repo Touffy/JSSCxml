@@ -427,16 +427,16 @@ SCxml.prototype={
 		return this.datamodel.expr(s,el)
 	},
 	
-	log: console.log,	// easy to override later
+	log: function(s){console.log(s)},	// easy to override later
 	
 	// displays errors nicely in the console,
 	// including the SCXML element that started it
 	// (we can't determine the SCXML line number)
-	error: function(name, src, err){
+	error: function(name, src, err, doNotShow){
 		var e=new SCxml.Error("error."+name, src, err)
 		this.html.dispatchEvent(new CustomEvent("queue", {detail:e}))
 		this.internalQueue.push(e)
-		console.error(err+"\nin SCXML "+this.name+" :", src)
+		if(!doNotShow) console.error(err+"\nin SCXML "+this.name+" :", src)
 		throw(err)
 	},
 	
