@@ -83,6 +83,11 @@ article{
 <p>Warning: at this time, delayed events can and will be added (but not processed) while the interpreter is paused, which may cause your SC to behave differently than normal when using the pause functionnality to debug it.</p>
 </article>
 
+<article><h1><code>clean()</code></h1>
+
+<p>Removes the interpreter's anchor (only if it is an <code>&lt;scxml&gt;</code> element) and datamodel <code>&lt;iframe&gt;</code> from the document, and also a bunch of references to facilitate garbage collection. You must not call this while the interpreter is running, of course.</p>
+</article>
+
 <article><h1><code>resume()</code></h1>
 
 <p>immediately resumes a paused interpreter.</p>
