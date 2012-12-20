@@ -40,13 +40,9 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	
 	this.sid=SCxml.sessions.length
 	SCxml.sessions.push(this)
-	if(htmlContext && htmlContext instanceof Element)
-		this.html=htmlContext
-	else{
-		this.html=document.createElement("scxml")
-		this.html.interpreter=this
-		document.head.appendChild(this.html)
-	}
+	this.html=(htmlContext && htmlContext instanceof Element) ? htmlContext
+	 : document.head.appendChild(document.createElement("scxml"))
+	this.html.interpreter=this
 	
 	this.initIframe(data)
 	
@@ -90,6 +86,25 @@ SCxml.parseSCXMLTags=function ()
 }
 
 SCxml.prototype={
+
+	clean: function()
+	{
+		delete this.html.interpreter
+		if(this.html && this.html.tagName=="scxml")
+			this.html.parentNode.removeChild(this.html)
+		delete this.html
+		
+		delete this.datamodel._sc
+		delete this.datamodel._event
+		delete this.datamodel._ioprocessors
+		delete this.datamodel
+
+		document.body.removeChild(this._iframe_)
+		delete this._iframe_
+
+		SCxml.sessions[this.sid]=null
+	},
+
 	toString: function(){ return "SCxml("+this.name+")" },
 	constructor: SCxml,
 

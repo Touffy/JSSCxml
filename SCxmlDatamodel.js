@@ -3,11 +3,12 @@ SCxml.prototype.initIframe=function (data)
 {
 	if(this.datamodel) return;
 	
-	var i=document.createElement("iframe")
-	i.className="scxml_script_frame"
-	i.style.display="none"
-	document.body.appendChild(i)
-	this.datamodel=i.contentWindow
+	with(this._iframe_=document.createElement("iframe")){
+		className="scxml_script_frame"
+		style.display="none"
+	}
+	document.body.appendChild(this._iframe_)
+	this.datamodel=this._iframe_.contentWindow
 
 	with(this.datamodel.document)
 	{
