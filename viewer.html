@@ -230,7 +230,7 @@ parse.onclick=function(e)
 	var rm=document.head.getElementsByTagName("scxml")
 	for(var i=0; i<rm.length; i++) document.head.removeChild(rm[i])
 	clearQueues()
-
+	if(sc) sc.clean()
 	sc=new SCxml(document.getElementsByTagName("textarea")[0].value)
 	sc.autoPauseBefore=SCxml.ALL_EVENTS
 }
