@@ -269,6 +269,7 @@ SCxml.prototype={
 	{
 	for(var i=0, state; state=states[i]; i++)
 	{
+		state.CA=false
 		if(state.tagName=="history")
 		{
 			var h
@@ -299,12 +300,26 @@ SCxml.prototype={
 		
 		var id=getId(state)
 
+		// find the maximal simple path that includes the state
+		// and add/propagate the CA (Common Ancestor) property
 		path.push(state)
 		var down=state, up=state
-		while(down = this.firstState(down))
+		while(down = this.firstState(down)){
 			path.push(down)
-		while((up = up.parentNode).tagName=="state" && up!=lcca)
+			down.CA=false
+		}
+		while((up = up.parentNode).tagName=="state" && up!=lcca){
 			path.unshift(up)
+			up.CA=state.CA
+		}
+		if(up.tagName=="state"){ do{
+				path.unshift(up)
+				up.CA=true
+			} while((up = up.parentNode).tagName=="state")
+		// also mark the parallel parent CA
+			up.CA=true
+		}
+		else up.CA=(up==lcca)
 		
 		var ct=new CompiledTree(new CompiledPath(path))
 		
@@ -316,7 +331,7 @@ SCxml.prototype={
 					
 					if(tree && tree.root.path[0]==c)
 						ct.appendChild(tree)
-					else
+					else if(!state.CA)
 						this.walkToEnter(c,ct, lcca)
 				}
 				c=c.nextElementSibling
@@ -329,7 +344,7 @@ SCxml.prototype={
 			return tree
 
 		// else, clim up to the root
-		while(ct.root.parent.tagName!="scxml" && ct.root.parent!=lcca)
+		while(ct.root.parent.tagName!="scxml")
 			ct=this.walkToEnter(ct.root.parent, ct, lcca)
 		
 		return ct

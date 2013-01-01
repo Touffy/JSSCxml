@@ -80,14 +80,14 @@ CompiledTree.prototype.attach=function(subTree)
 }
 CompiledTree.prototype.inEntryOrder=function()
 {
-	return this.root.path.concat(this.root.atomic ? [] : this.children.map(function(c){ return c.inEntryOrder() }).reduce(function(a,b){return a.concat(b)}))
+	return this.root.path.concat(this.root.atomic ? [] : this.children.map(function(c){ return c.inEntryOrder() }).reduce(function(a,b){return a.concat(b)})).filter(function(c){return !c.CA})
 }
 CompiledTree.prototype.inExitOrder=function()
 {
 	return (this.root.atomic ? [] : this.children
 		.map(function(c){ return c.inExitOrder() })
 		.reduceRight(function(a,b){return a.concat(b)})
-	).concat(this.root.path.reverse())
+	).concat(this.root.path.reverse()).filter(function(c){return !c.CA})
 }
 
 CompiledTree.prototype.atoms=function()
