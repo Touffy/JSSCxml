@@ -48,7 +48,8 @@ SCxml.prototype.initIframe=function (data)
 
 SCxml.prototype.wrapScript=function (script, element)
 {
+	this.datamodel._element=element
 	this.datamodel.document.write('<script>\n'
 		+ 'try{ with(_jsscxml_predefined_){\n' + script
-		+ '\n}} catch(err){_sc.error("execution", element, err)}\n</script>')
+		+ '\n}} catch(err){_sc.error("execution", _element, err)}\n</script>')
 }
