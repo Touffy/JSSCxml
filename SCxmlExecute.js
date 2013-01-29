@@ -83,9 +83,9 @@ SCxml.executableContent={
 	send: function(sc, element)
 	{
 		var target=element.getAttribute("target")
-			||sc.expr(element.getAttribute("targetexpr"))
+			||sc.expr(element.getAttribute("targetexpr"), element)
 		var event=element.getAttribute("event")
-			||sc.expr(element.getAttribute("eventexpr"))
+			||sc.expr(element.getAttribute("eventexpr"), element)
 
 		if(!element.hasAttribute('id'))
 			element.setAttribute('id', sc.uniqId())
@@ -93,10 +93,10 @@ SCxml.executableContent={
 		if(loc=element.getAttribute("idlocation"))
 			sc.expr(loc+'="'+id+'"')
 		var proc=element.getAttribute("type")
-			||sc.expr(element.getAttribute("typeexpr"))
+			||sc.expr(element.getAttribute("typeexpr"), element)
 			||"SCXML"
 		var delay=SCxml.parseTime(element.getAttribute("delay")
-			|| sc.expr(element.getAttribute("delayexpr")))
+			|| sc.expr(element.getAttribute("delayexpr"), element))
 
 		if(target=="#_internal"){
 			var e=new SCxml.InternalEvent(event, element)

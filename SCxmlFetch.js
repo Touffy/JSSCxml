@@ -71,12 +71,12 @@ SCxml.prototype.xFetchReadHeaders=function(element, headers)
 SCxml.executableContent.fetch=function(sc, element)
 {
 	var target=element.getAttribute("target")
-		||sc.expr(element.getAttribute("targetexpr"))
+		||sc.expr(element.getAttribute("targetexpr"), element)
 	var event=element.getAttribute("callback")
-		||sc.expr(element.getAttribute("callbackexpr"))
+		||sc.expr(element.getAttribute("callbackexpr"), element)
 
 	var type=element.getAttribute("type")
-		||sc.expr(element.getAttribute("typeexpr"))
+		||sc.expr(element.getAttribute("typeexpr"), element)
 		||"text"
 	var proc
 	if(type in SCxml.xFetch.types)
@@ -99,5 +99,5 @@ SCxml.executableContent.fetch=function(sc, element)
 	var c=element.firstElementChild
 	if(c && c.tagName=="content") data=c.textContent
 	
-	new SCxml.xFetch.Request(target, sc, event, headers, data)
+	new SCxml.xFetch.Request(target, sc, event, headers, proc(data))
 }
