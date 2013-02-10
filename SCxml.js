@@ -420,6 +420,7 @@ SCxml.prototype={
 			trans.lcca=trans.lcca.parentNode
 		for(var i=0, e; e=targets[i]; i++) if(e==trans.lcca)
 			trans.lcca=trans.lcca.parentNode
+		while(trans.lcca.tagName=="parallel") trans.lcca=trans.lcca.parentNode
 	},
 	
 	saveHistory: function(state)
