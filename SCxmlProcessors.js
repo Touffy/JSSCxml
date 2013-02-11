@@ -16,7 +16,8 @@ SCxml.EventProcessors={
 			{
 				if(sid in SCxml.sessions && SCxml.sessions[sid])
 					SCxml.sessions[sid].onEvent(event)
-				else throw "target SCXML session doesn't exist"
+				else sc.error("communication",element,
+					new Error('target session "'+target+'" does not exist'))
 			}
 			else {
 				sc.error("execution",element,
