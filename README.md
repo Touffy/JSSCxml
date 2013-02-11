@@ -10,8 +10,9 @@ It is distributed under a MIT license.
 
 ### Development status
 
-You can `<send>` events with type="scxml" between SCs inside the same browser window, receive external events from SCs or JavaScript within that window, and fire type="DOM" events. A custom `<fetch>` element is in development to provide access to HTTP requests. JSSC does not yet support `<invoke>`.
+You can't `<send>` or receive remote events (of any type) with I/O Processors, but you can already use the included custom `<fetch>` element to get similar results in a client-server fashion.
 
+JSSC does not yet support `<invoke>`, nor, as mentionned above, sending SCXML events over HTTP. Support is planned for listening for remote events (from predefined hosts).
 
 ### Known issues
 (that I'm not going to fix right now)
