@@ -26,23 +26,20 @@ SCxml.prototype.assign=function(left, right)
 
 SCxml.prototype.readParams=function(element, data)
 {
-	var c=element.firstElementChild
-	while(c) if(c.tagName=="param")
-	{
-		var name=c.getAttribute("name")
-		var value=c.getAttribute("expr") || c.getAttribute("loc")
-		try{
-			if(data.hasOwnProperty(name))
-			{
-				if(data[name] instanceof Array)
-					data[name].push(this.expr(value, c))
-				else data[name] = [data[name], this.expr(value, c)]
-			}
-			else data[name] = this.expr(value, c)
-		}catch(err){ throw err}
-
-		c=c.nextElementSibling
-	}
+	for(var c=element.firstElementChild; c; c=c.nextElementSibling)
+		if(c.tagName=="param"){
+			var name=c.getAttribute("name")
+			var value=c.getAttribute("expr") || c.getAttribute("loc")
+			try{
+				if(data.hasOwnProperty(name))
+				{
+					if(data[name] instanceof Array)
+						data[name].push(this.expr(value, c))
+					else data[name] = [data[name], this.expr(value, c)]
+				}
+				else data[name] = this.expr(value, c)
+			}catch(err){ throw err}
+		}
 }
 
 SCxml.parseTime=function (s)
@@ -126,7 +123,7 @@ SCxml.executableContent={
 		sc.readParams(element, data)
 		var c=element.firstElementChild
 		if(c && c.tagName=="content")
-			data=c.textContent
+			alert(c.textContent)
 		
 		var e=proc.createEvent(event, sc, data, element)
 		if(delay > -1)
