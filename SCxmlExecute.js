@@ -123,7 +123,7 @@ SCxml.executableContent={
 		sc.readParams(element, data)
 		var c=element.firstElementChild
 		if(c && c.tagName=="content")
-			alert(c.textContent)
+			data=c.textContent
 		
 		var e=proc.createEvent(event, sc, data, element)
 		if(delay > -1)
