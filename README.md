@@ -14,6 +14,18 @@ You can't `<send>` or receive remote events (of any type) with I/O Processors, b
 
 JSSC does not yet support `<invoke>`, nor, as mentionned above, sending SCXML events over HTTP. Support is planned for listening for remote events (from predefined hosts).
 
+Current Features:
+
+- ECMAScript is the only supported datamodel
+- core algorithm is fully conformant with the stable parts of the spec (except `<invoke>`)
+- transition preemption is currently slightly different (work in progress in the Working Group, stay tuned)
+- all executable content works as specified, except `<send>` in some cases (see above)
+- DOM interaction is fully supported
+- interpreter JavaScript API including events (documented in dom.html)
+- `<fetch>` custom executable element (see fetch.html for documentation)
+- incomplete pause/resume functionality (doesn't pause delayed events yet)
+- works in WebKit-based browsers
+
 ### Known issues
 (that I'm not going to fix right now)
 
