@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?><!-- test that foreach causes a new variable to be declared if 'item' doesn't already exist.  Also
-test that it will use an existing var if it does exist. --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" datamodel="ecmascript" version="1.0">
+test that it will use an existing var if it does exist. --><scxml xmlns="http://www.w3.org/2005/07/scxml" initial="s0" datamodel="ecmascript" version="1.0">
 <datamodel>
   <data id="Var1"/>
   <data id="Var2"/>
-  <data id="Var3">
-    <conf:array123/>
-    </data>
+  <data id="Var3" expr="[1,2,3]"/>
   </datamodel>
   
    <state id="s0">
