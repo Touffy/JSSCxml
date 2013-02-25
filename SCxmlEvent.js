@@ -79,7 +79,8 @@ SCxml.ExternalEvent.targetOfElement=function (e)
 SCxml.ExternalEvent.fromDOMEvent=function (de)
 {
 	var e=new SCxml.ExternalEvent(de.type,
-		SCxml.ExternalEvent.targetOfElement(de.srcElement), "DOM")
+		SCxml.ExternalEvent.targetOfElement(de.srcElement),
+		SCxml.EventProcessors.DOM.name)
 	e.timeStamp=de.timeStamp
 	
 	if(de instanceof CustomEvent)
