@@ -68,6 +68,7 @@ SCxml.prototype.execute=function(element)
 // if you want to add a custom executable element, simply add a method
 // to this object, with the name of your new element:
 SCxml.executableContent={
+
 	raise: function(sc, element)
 	{
 		var event=element.getAttribute("event")
@@ -171,8 +172,9 @@ SCxml.executableContent={
 		var value=element.getAttribute("expr")
 		var loc=element.getAttribute("location")
 		if(!loc) sc.error("syntax",element,new Error("'loc' attribute required"))
-		sc.expr(loc, element) // eval once to see if it's been declared
-		if(value) sc.expr(loc+" = "+value, element)
+		value=sc.expr(loc+" = "+value, element)
+		if(sc.expr(loc, element) != value)
+			sc.error("execution",element,new Error("cannot assign to read-only property"))
 	},
 	
 	"if": function(sc, element)
