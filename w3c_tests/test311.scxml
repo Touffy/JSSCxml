@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?><!-- test that assignment to a non-existent location yields an error --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" version="1.0" initial="s0">
+<?xml version="1.0" encoding="UTF-8"?><!-- test that assignment to a non-existent location yields an error --><scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="s0">
 
 
 <state id="s0">
   <onentry>
-   <assign location="Var1" expr="1"/>
+   <assign location="Var1.p" expr="1"/>
    </onentry>
    <transition event="error.execution" target="pass"/> 
    <transition event=".*" target="fail"/>

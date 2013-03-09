@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" version="1.0" datamodel="ecmascript" initial="s0" name="machineName">
+<?xml version="1.0" encoding="UTF-8"?><scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" datamodel="ecmascript" initial="s0" name="machineName">
 
 <!-- test that _event.type is set correctly for internal, platform, and external events -->
 <datamodel>
@@ -24,7 +24,7 @@
 <state id="s2">
    <onentry>
    <!-- this will generate an error, which is a platform event -->
-     <assign location="Var2" expr="1"/>
+     <assign location="Var2.p" expr="1"/>
    </onentry>
    <transition event="error" target="s3">
      <assign location="Var1" expr="_event.type"/>
