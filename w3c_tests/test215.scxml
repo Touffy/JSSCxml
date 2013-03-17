@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?><!-- we test that typexpr is evaluated at runtime.  If the original value of var1 is used, the invocation
 will fail (test215sub1.scxml is not of type 'foo', even if the platform supports foo as a type).  If
-the runtime value is used, the invocation will succeed --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" datamodel="ecmascript" version="1.0">
+the runtime value is used, the invocation will succeed --><scxml xmlns="http://www.w3.org/2005/07/scxml" initial="s0" datamodel="ecmascript" version="1.0">
 
 <datamodel>
   <data id="Var1" expr="'foo'"/>
@@ -8,7 +8,7 @@ the runtime value is used, the invocation will succeed --><scxml xmlns="http://w
    
 <state id="s0">
   <onentry>
-    <send event="timeout" delay="5s"/>
+    <send event="timeout" delay="2s"/>
     <assign location="Var1" expr="'http://www.w3.org/TR/scxml/'"/>
     </onentry>
   <invoke typeexpr="Var1">
