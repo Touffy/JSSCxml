@@ -12,7 +12,7 @@ It is distributed under a MIT license.
 
 You can't `<send>` or receive remote events (of any type) with I/O Processors, but you can already use the included custom `<fetch>` element to get similar results in a client-server fashion.
 
-JSSC does not yet support `<invoke>`, nor, as mentionned above, sending SCXML events over HTTP. Support is planned for listening for remote events (from predefined hosts).
+`<invoke>` is now being implemented (no events or data sharing yet) and, as mentionned above, you can't send SCXML events over HTTP. Support is planned for listening for remote events (from predefined hosts) with the EventSource protocol built-in.
 
 Current Features:
 
@@ -29,7 +29,7 @@ Current Features:
 ### Known issues
 (that I'm not going to fix right now)
 
-- Variables whose name matched a predefined window variable are pre-declared in the datamodel. They will never cause an error if you try to assign to them without an explicit declaration. Also, you should never delete them.
+- Variables whose name matched a predefined window variable are pre-declared in the datamodel. You should not delete them if you don't understand what it means and how the datamodel is implemented in JSSC.
 
 - The JavaScript expression in the `location` attribute of an `<assign>` element is currently being evaluated twice while executing the `<assign>`. That could cause a bug if it has side-effects. You should perform any such actions in a `<script>`, and use read-only expressions in `location` attributes. Or you can just write the whole assignment in a `<script>`, of course.
 
