@@ -20,6 +20,12 @@ SCxmlProcessors.js	implements Event IO Processors
 SCxmlDatamodel.js	the datamodel wrapper iframe
 SCxmlEvent.js		authors may want to read that one
 SCxmlExecute.js		implements executable content
+SCxmlInvoke.js		contains most of the <invoke> implementation
+
+If you want <fetch> as well (you probably do), include this:
+
+SCxmlFetch.js		makes XMLHttpRequests available to SCXML documents
+
 */
 
 // source can be a URI, an SCXML string or a parsed document
@@ -37,6 +43,8 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	
 	this.configuration={}
 	this.statesToEnter=null
+	this.invoked={}
+	this.toInvoke=new Set()
 	
 	this.sid=SCxml.sessions.length
 	SCxml.sessions.push(this)
@@ -89,6 +97,7 @@ SCxml.prototype={
 
 	clean: function()
 	{
+		if(this.readyState==SCxml.RUNNING) this.terminate()
 		delete this.html.interpreter
 		if(this.html && this.html.tagName=="scxml")
 			this.html.parentNode.removeChild(this.html)
@@ -103,20 +112,57 @@ SCxml.prototype={
 		delete this._iframe_
 
 		SCxml.sessions[this.sid]=null
+		
+		if(this.parent) delete this.parent
+		delete this.invoked
+	},
+	terminate: function()
+	{
+		if(this.readyState<SCxml.RUNNNIG) return;
+		
+		// exit all active states
+		var s=this.dom.createNodeIterator(this.dom.documentElement,
+			NodeFilter.SHOW_ELEMENT, SCxml.activeStateFilter)
+		var rev=[], v
+		while(v=s.nextNode()) rev.push(v)
+		rev.reverse()
+		this.html.dispatchEvent(new CustomEvent("exit", {detail:
+			{list: rev.filter(this.exitState, this).map(getId)} }))
+	
+		this.running=false
+		
+		// fire the done.invoke.id event if there is a parent session
+		if(this.readyState>=SCxml.FINISHED && this.parent)
+			this.parent.fireEvent(
+				new SCxml.ExternalEvent("done.invoke."+this.iid,
+				"#_"+this.iid, 'scxml', this.iid))
+		this.invokedReady()
 	},
 
 	toString: function(){ return "SCxml("+this.name+")" },
 	constructor: SCxml,
+	
+	// tell parent that we're ready and resume its mainEventLoop
+	// if all other invoked sessions are also ready
+	invokedReady: function()
+	{
+		if(!this.parent) return;
+		this.parent.invoked[this.iid]=this
+		if(this.iid in this.parent.toInvoke.items 
+		&& !this.parent.toInvoke.remove(this.iid))
+			this.parent.mainEventLoop2()
+	},
 
 	// XHR callbacks
 	xhrResponse: function(xhr){ this.interpret(xhr.req.responseXML) },
 	xhrFailed: function(xhr)
 	{
+		this.invokedReady()
 		// the Webkit generates a perfectly good error message
 		// when an XHR fails: no need to throw another on top
 	},
 	
-	validate: function validate()
+	validate: function ()
 	{
 		if(!this.dom)
 			throw "Failed to load SCXML because of malformed XML."
@@ -148,8 +194,14 @@ SCxml.prototype={
 				if(!state.hasAttribute('id'))
 					state.setAttribute('id', this.uniqId())
 			
+			var invs=querySelectorAll("invoke")
+			for(var i=0, inv; inv=invs[i]; i++)
+			// generate an invokeID for invokes that don't have one
+				if(!inv.hasAttribute('id')) inv.setAttribute('id',
+					this.invokeId(inv.parentNode.getAttribute('id')))
+			
 			getElementById=function(id)
-			{ return querySelector("state[id="+id+"], final[id="+id+"], history[id="+id+"], parallel[id="+id+"]") }
+			{ return querySelector("state[id='"+id+"'], final[id='"+id+"'], history[id='"+id+"'], parallel[id='"+id+"']") }
 		}
 	},
 
@@ -160,6 +212,14 @@ SCxml.prototype={
 		do{
 			id="__generated_id_"+Math.floor(Math.random()*1000000)
 		}while(this.dom.getElementById(id))
+		return id
+	},
+	invokeId: function (stateId)
+	{
+		var id
+		do{
+			id=stateId+".inv"+Math.floor(Math.random()*1000000)
+		}while(this.dom.querySelector("invoke[id='"+id+"']"))
 		return id
 	},
 	
@@ -173,7 +233,10 @@ SCxml.prototype={
 	interpret: function(dom)
 	{
 		this.dom=dom
-		this.validate()
+		try{this.validate()} catch(err){
+			this.invokedReady()
+			throw err
+		}
 		
 		var lb=this.lateBinding // just temporarily forget this
 		this.lateBinding=true	// to let execute() do its job
@@ -181,6 +244,8 @@ SCxml.prototype={
 		// interpret top-level <datamodel> and scripts if present
 		var d=dom.querySelector("scxml > datamodel")
 		if(d) try{this.execute(d)} catch(err){}
+
+		//TODO: inject parent data here
 
 		d=dom.querySelectorAll("scxml > script")
 		for(var i=0; i<d.length; i++)
@@ -213,15 +278,21 @@ SCxml.prototype={
 		
 		var s=this.firstState(this.dom.documentElement)
 		// and... enter !
-		if(!s) throw this.name + " has no suitable initial state."
+		if(!s){
+			this.invokedReady()
+			throw this.name + " has no suitable initial state."
+		}
 		if(s instanceof Array) this.addStatesToEnter( s )
 		else this.addStatesToEnter( [s] )
 		
+		this.readyState=SCxml.RUNNING
 		this.html.dispatchEvent(new CustomEvent("enter", {detail:{list:
 			this.statesToEnter.inEntryOrder()
 			.filter(this.enterState,this).map(getId)} }))
-		this.readyState++
-		this.mainEventLoop()
+		// this handles the case where an SC is initially final
+		if(this.stable) this.terminate()
+		// but normally we should go to the mainEventLoop
+		else this.mainEventLoop()
 	},
 	
 	pauseNext: function(macrostep)
@@ -245,14 +316,15 @@ SCxml.prototype={
 			if(state.length==1 || parent.tagName=="state") return state[0]
 		}
 
-		else if(state=this.dom.querySelector("[id="+parent.getAttribute("id")
-			+"] > initial"))
+		else if(state=this.dom.querySelector("[id="+getId(parent)+"] > initial"))
 		{
 			var trans=state.firstElementChild
 			while(trans && trans.tagName!="transition")
 				trans=trans.nextElementSibling
-			if(!trans)
+			if(!trans){
+				this.invokedReady()
 				throw this.name+": <initial> requires a <transition>."
+			}
 			parent.executeAfterEntry=trans
 			state=this.dom.getElementById(id=trans.getAttribute("target"))
 		}
@@ -280,8 +352,10 @@ SCxml.prototype={
 				var trans=state.firstElementChild
 				while(trans && trans.tagName!="transition")
 					trans=trans.nextElementSibling
-				if(!trans)
+				if(!trans){
+					this.invokedReady()
 					throw this.name+": <history> requires a default <transition>."
+				}
 				// transition content must be run after parent's onentry
 				// but before entering any children
 				state.parentNode.executeAfterEntry=trans
@@ -444,6 +518,10 @@ SCxml.prototype={
 		for(var i=0; i<onexit.length; i++)
 			try{this.execute(onexit[i])}
 			catch(err){}
+		
+		var invoked=this.dom.querySelectorAll("[id="+id+"] > invoke")
+		for(i=0; i<invoked.length; i++)
+			this.cancelInvoke(getId(invoked[i]))
 
 		delete this.configuration[id]
 		state.removeAttribute("active")
@@ -512,9 +590,7 @@ SCxml.prototype={
 		return trans.length ? this.preemptTransitions(trans) : trans
 	},
 	
-	// a transition preempts another iff it exits the other's source state
-	// (it makes sense, and so says a normative section of the spec;
-	// I don't care that they made the pseudocode more complicated than that)
+	// a transition preempts another if its source is a parent of the other's
 	preemptTransitions: function(trans)
 	{
 		var t=trans[0] // the first one can never be preempted
@@ -538,28 +614,55 @@ SCxml.prototype={
 	
 	mainEventLoop: function()
 	{
-		if(this.nextPauseBefore>=2) return this.pause()
-		if(this.autoPauseBefore==2) this.nextPauseBefore=2
-		
-		var conf=this.sortedConfiguration()
-		
-		// first try eventless transition
-		var trans=this.selectTransitions(null, conf)
-		if(trans.length) return this.takeTransitions(trans)
-		
-		// if none is enabled, consume internal events
-		var event
-		while(event=this.internalQueue.shift())
-		{
-			this.html.dispatchEvent(new CustomEvent("consume", {detail:"internal"}))
-			this.datamodel._event=event
-			trans=this.selectTransitions(event, conf)
-			if(trans.length) return this.takeTransitions(trans)
+		while(this.running && !this.stable){
+			this.macrostep()
+			if(!this.running) return this.terminate()
+			
+			if(this.invokeAll()) return; // because invocation is asynchronous
+			
+			this.stable=true
+			this.extEventLoop()
+			if(!this.running) return this.terminate()
 		}
+		this.invokedReady()
+	},
+	
+	// this is called if there were states to invoke in the main loop
+	mainEventLoop2: function()
+	{
+		if(this.internalQueue.length) this.mainEventLoop()
+		// macrostep completed and invocation errors handled
 		
-		// if we reach here, no transition could be used
 		this.stable=true
 		this.extEventLoop()
+		if(!this.running) return this.terminate()
+		this.mainEventLoop()
+	},
+	
+	macrostep: function()
+	{
+		while(this.running){
+			if(this.nextPauseBefore>=2) return this.pause()
+			if(this.autoPauseBefore==2) this.nextPauseBefore=2
+			
+			var conf=this.sortedConfiguration()
+			
+			// first try eventless transition
+			var trans=this.selectTransitions(null, conf)
+			if(!trans.length){
+				// if none is enabled, consume internal events
+				var event
+				while(event=this.internalQueue.shift())
+				{
+					this.html.dispatchEvent(new CustomEvent("consume", {detail:"internal"}))
+					this.datamodel._event=event
+					trans=this.selectTransitions(event, conf)
+					if(trans.length) break
+				}
+			}
+			if(trans.length) this.takeTransitions(trans)
+			else break
+		}
 	},
 
 	// NEVER call this directly, use pauseNext() instead
@@ -595,7 +698,8 @@ SCxml.prototype={
 			this.html.dispatchEvent(new CustomEvent("consume", {detail:"external"}))
 			this.datamodel._event=event
 			trans=this.selectTransitions(event,conf)
-			if(trans) return this.takeTransitions(trans)
+			if(trans.length)
+				return this.takeTransitions(trans)
 		}
 		
 		// if we reach here, no transition could be used
@@ -641,7 +745,6 @@ SCxml.prototype={
 			this.html.dispatchEvent(new CustomEvent("enter", {detail:{list:
 				this.statesToEnter.inEntryOrder()
 				.filter(this.enterState,this).map(getId)} }))
-		if(this.running) this.mainEventLoop()
 	},
 
 	// returns the immediate or deep (atomic) active children
@@ -690,8 +793,11 @@ SCxml.prototype={
 			event=new SCxml.ExternalEvent(event, null, undefined, null, arguments[1])
 		this.html.dispatchEvent(new CustomEvent("queue", {detail:event}))
 		this.externalQueue.push(event)
-		if(this.stable && !this.paused)
+		if(this.stable && !this.paused){
 			this.extEventLoop()
+			if(!this.running) return this.terminate()
+			if(!this.stable) this.mainEventLoop()
+		}
 	}
 }
 
