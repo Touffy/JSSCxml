@@ -73,6 +73,5 @@ SCxml.prototype.invoke=function(inv)
 
 	// now create the invoked session
 	var invoked=SCxml.invokeTypes[type].instantiate(src, data, id, this)
-	invoked.finalize=document.querySelector("#"+id+" > finalize")
 	invoked.af=inv.hasAttribute('autoforward')
 }
