@@ -80,7 +80,6 @@ function getId(element){
 	return element.getAttribute("id")
 }
 
-
 /*
 Instantiates an SCxml() for each <scxml> in the HTML document,
 and references it in an "interpreter" property of the
@@ -204,6 +203,13 @@ SCxml.prototype={
 			{ return querySelector("state[id='"+id+"'], final[id='"+id+"'], history[id='"+id+"'], parallel[id='"+id+"']") }
 		}
 	},
+	
+	inInvoke: function (element)
+	{
+		for(var c=element.parentElement; c!=this.dom.documentElement; c=c.parentElement)
+			if(c.tagName=="invoke") return true
+		return false
+	},
 
 	// creates a unique ID guaranteed not to occur in the same SCXML
 	uniqId: function ()
@@ -245,16 +251,26 @@ SCxml.prototype={
 		var d=dom.querySelector("scxml > datamodel")
 		if(d) try{this.execute(d)} catch(err){}
 
-		//TODO: inject parent data here
+		// update any declared variable with invocation shared data
+		if(this.sharedData){
+			for(var i in this.sharedData) if(this.sharedData.hasOwnProperty(i))
+			{
+				if(i in this.datamodel._jsscxml_predefined_)
+					this.datamodel._jsscxml_predefined_[i]=this.sharedData[i]
+				else if(i in this.datamodel)
+					this.datamodel[i]=this.sharedData[i]
+				else delete this.sharedData[i] // un-share undeclared data
+			}
+		}
 
 		d=dom.querySelectorAll("scxml > script")
-		for(var i=0; i<d.length; i++)
+		for(i=0; i<d.length; i++) if(!this.inInvoke(d[i]))
 			try{this.wrapScript(d[i].textContent,d[i])} catch(err){}
 
 
 		// interpret other <datamodel>s, but do not assign if binding="late"
 		d=dom.querySelectorAll("scxml > * datamodel")
-		for(var i=0; i<d.length; i++)
+		for(i=0; i<d.length; i++) if(!this.inInvoke(d[i]))
 		{
 			if(lb)
 				try{this.declare(d[i])} catch(err){}
@@ -267,7 +283,6 @@ SCxml.prototype={
 		this.running=true
 		this.readyState=SCxml.READY
 		this.html.dispatchEvent(new Event("ready"))
-		
 		if(this.interpretASAP) this.start()
 	},
 	
@@ -586,7 +601,6 @@ SCxml.prototype={
 				break
 			}
 		}
-		
 		return trans.length ? this.preemptTransitions(trans) : trans
 	},
 	
@@ -729,7 +743,7 @@ SCxml.prototype={
 				{list: rev.filter(this.exitState, this).map(getId)} }))
 			s.detach()
 		}
-		
+
 		// now, between exit and entry, run the executable content if present
 		for(i=0; t=trans[i]; i++)
 		{

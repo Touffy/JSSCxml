@@ -3,10 +3,11 @@ SCxml.invokeTypes={
 	scxml: {
 		name: 'http://www.w3.org/TR/scxml',
 		instantiate: function(src, data, id, psc){
-			var sc=new SCxml(src, null, data, true)
+			var sc=new SCxml(src, null, null, true)
 			sc.iid=id
 			sc.name=id
 			sc.parent=psc
+			sc.sharedData=data
 			// TODO: inject the data after datamodel init but before
 			// running global scripts
 			return sc
