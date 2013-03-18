@@ -709,8 +709,17 @@ SCxml.prototype={
 		var event, trans
 		while(event=this.externalQueue.shift())
 		{
-			this.html.dispatchEvent(new CustomEvent("consume", {detail:"external"}))
 			this.datamodel._event=event
+			if(event.invokeid && (event.invokeid in this.invoked)){
+				var f=this.dom.querySelector("[id='"+event.invokeid+"'] > finalize")
+				if(f) this.execute(f)
+			}
+			this.html.dispatchEvent(new CustomEvent("consume", {detail:"external"}))
+			
+			// autoforward event to invoked sessions
+			for(var i in this.invoked) if(this.invoked[i].af)
+				this.invoked[i].onEvent(event)
+			
 			trans=this.selectTransitions(event,conf)
 			if(trans.length)
 				return this.takeTransitions(trans)
@@ -805,6 +814,7 @@ SCxml.prototype={
 			event=SCxml.ExternalEvent.fromDOMEvent(event)
 		else if((typeof event) == "string")
 			event=new SCxml.ExternalEvent(event, null, undefined, null, arguments[1])
+		
 		this.html.dispatchEvent(new CustomEvent("queue", {detail:event}))
 		this.externalQueue.push(event)
 		if(this.stable && !this.paused){
