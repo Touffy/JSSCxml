@@ -22,7 +22,7 @@ SCxml.EventProcessors={
 			else if(target.match(/^#_parent$/))
 			{
 				if(sc.parent){
-					event.invokeid=this.iid
+					event.invokeid=sc.iid
 					sc.parent.onEvent(event)
 				}
 				else sc.error("communication",element,
