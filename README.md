@@ -12,7 +12,7 @@ It is distributed under a MIT license.
 
 You can't `<send>` or receive remote events (of any type) with I/O Processors, but you can already use the included custom `<fetch>` element to get similar results in a client-server fashion.
 
-`<invoke>` is now being implemented (no events or data sharing yet) and, as mentionned above, you can't send SCXML events over HTTP. Support is planned for listening for remote events (from predefined hosts) with the EventSource protocol built-in.
+`<invoke>` is now being implemented (but mostly functional now) and, as mentionned above, you can't send SCXML events over HTTP. Support is planned for listening for remote events (from predefined hosts) with the EventSource protocol built-in.
 
 Current Features:
 
