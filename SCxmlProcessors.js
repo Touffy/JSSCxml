@@ -4,7 +4,7 @@ SCxml.EventProcessors={
 		name:"http://www.w3.org/TR/scxml/#SCXMLEventProcessor",
 		createEvent: function(name, sc, data)
 		{
-			return new SCxml.ExternalEvent(name, sc.sid,
+			return new SCxml.ExternalEvent(name, "#_"+sc.sid,
 				SCxml.EventProcessors.SCXML.name, "", data)
 		},
 		send: function(event, target, element, sc)
@@ -19,10 +19,26 @@ SCxml.EventProcessors={
 				else sc.error("communication",element,
 					new Error('target session "'+target+'" does not exist'))
 			}
+			else if(target.match(/^#_parent$/))
+			{
+				if(sc.parent){
+					event.invokeid=this.iid
+					sc.parent.onEvent(event)
+				}
+				else sc.error("communication",element,
+					new Error('this session has no #_parent'))
+			}
+			else if((sid=target.match(/^#_(.+)$/)) && (sid=sid[1]))
+			{
+				if(sid in sc.invoked)
+					sc.invoked[sid].onEvent(event)
+				else sc.error("communication",element,
+					new Error('invoked target "'+target+'" does not exist'))
+			}
 			else {
 				sc.error("execution",element,
 					new Error('unsupported target "'+target+'" for SCXML events'))
-			} // TODO
+			} // TODO: remote targets
 		}
 	},
 	DOM:{
