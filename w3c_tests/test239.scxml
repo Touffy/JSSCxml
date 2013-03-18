@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?><!-- test that markup can be specified both by 'src' and by <content>  --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" version="1.0" datamodel="ecmascript">
+<?xml version="1.0" encoding="UTF-8"?><!-- test that markup can be specified both by 'src' and by <content>  --><scxml xmlns="http://www.w3.org/2005/07/scxml" initial="s0" version="1.0" datamodel="ecmascript">
 
      
 <state id="s0" initial="s01">
@@ -8,7 +8,7 @@
     <transition event="timeout" target="fail"/>
     
    <state id="s01">
-     <invoke type="http://www.w3.org/TR/scxml/" src="file:test239sub1.scxml"/>
+     <invoke type="http://www.w3.org/TR/scxml/" src="w3c_tests/test239sub1.scxml"/>
      <transition event="done.invoke" target="s02"/>
    </state>
 
