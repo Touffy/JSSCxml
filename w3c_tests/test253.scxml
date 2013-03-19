@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?><!-- test that the scxml event processor is used in both directions.  If test252sub1 uses the 
 scxml event i/o processor to communicate with us, send it an event.  It will send back success if
 this process uses the scxml processor to send the message to it, otherwise failure.  For this test we allow 
-'scxml' as an alternative to the full url.   --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" datamodel="ecmascript">
+'scxml' as an alternative to the full url.   --><scxml xmlns="http://www.w3.org/2005/07/scxml" initial="s0" datamodel="ecmascript">
 <datamodel>
   <data id="Var1"/>
   </datamodel>
@@ -13,7 +13,7 @@ this process uses the scxml processor to send the message to it, otherwise failu
     
     <transition event="timeout" target="fail"/>
     
-    <invoke type="scxml" id="foo" src="file:test253sub1.scxml"/>
+    <invoke type="scxml" id="foo" src="w3c_tests/test253sub1.scxml"/>
     
     <state id="s01">
     <transition event="childRunning" target="s02">
