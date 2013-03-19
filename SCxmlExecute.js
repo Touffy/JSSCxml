@@ -80,6 +80,7 @@ SCxml.executableContent={
 	
 	send: function(sc, element)
 	{
+		if(sc.sendNoMore) return; // prevent <send> from terminated SCs
 		var target=element.getAttribute("target")
 			||sc.expr(element.getAttribute("targetexpr"), element)
 		var event=element.getAttribute("event")

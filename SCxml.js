@@ -125,6 +125,7 @@ SCxml.prototype={
 		var rev=[], v
 		while(v=s.nextNode()) rev.push(v)
 		rev.reverse()
+		if(this.readyState<SCxml.FINISHED) this.sendNoMore=true
 		this.html.dispatchEvent(new CustomEvent("exit", {detail:
 			{list: rev.filter(this.exitState, this).map(getId)} }))
 	
@@ -135,6 +136,7 @@ SCxml.prototype={
 			this.parent.fireEvent(
 				new SCxml.ExternalEvent("done.invoke."+this.iid,
 				"#_"+this.iid, 'scxml', this.iid))
+		this.sendNoMore=true
 		this.invokedReady()
 	},
 
@@ -712,7 +714,10 @@ SCxml.prototype={
 			this.datamodel._event=event
 			if(event.invokeid && (event.invokeid in this.invoked)){
 				var f=this.dom.querySelector("[id='"+event.invokeid+"'] > finalize")
-				if(f) this.execute(f)
+				if(f){
+					if(f.firstElementChild) this.execute(f)
+					else this.emptyFinalize(this.invoked[event.invokeid])
+				}
 			}
 			this.html.dispatchEvent(new CustomEvent("consume", {detail:"external"}))
 			

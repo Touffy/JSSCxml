@@ -9,6 +9,7 @@ SCxml.EventProcessors={
 		},
 		send: function(event, target, element, sc)
 		{
+			if(sc.sendNoMore) return;
 			target=target||"#_scxml_"+sc.sid
 			console.log("sending a "+event.name+" event to "+target)
 			var sid
@@ -52,6 +53,7 @@ SCxml.EventProcessors={
 		},
 		send: function(event, target, element, sc)
 		{
+			if(sc.sendNoMore) return;
 			var obj
 			// heuristics to determine target syntax (XPath or CSS)
 			if(!target) obj=sc.html
