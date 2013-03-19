@@ -76,10 +76,10 @@ SCxml.prototype.invoke=function(inv)
 	invoked.af=inv.hasAttribute('autoforward')
 }
 
-SCxml.prototype.emptyFinalize=function(inv)
+SCxml.prototype.emptyFinalize=function(event)
 {
-	if(!inv.sharedData) return;
-	for(var i in inv.sharedData)
-		this.assign(i, ((i in inv.datamodel._jsscxml_predefined_) ?
-			inv.datamodel : inv.datamodel._jsscxml_predefined_)[i])
+	var inv=this.invoked[event.invokeid]
+	if(!inv.sharedData || !event.data) return;
+	for(var i in inv.sharedData) if(i in event.data)
+		this.assign(i, event.data[i])
 }

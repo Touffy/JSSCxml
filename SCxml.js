@@ -135,7 +135,8 @@ SCxml.prototype={
 		if(this.readyState>=SCxml.FINISHED && this.parent)
 			this.parent.fireEvent(
 				new SCxml.ExternalEvent("done.invoke."+this.iid,
-				"#_"+this.iid, 'scxml', this.iid))
+				"#_"+this.iid, 'scxml', this.iid, this.donedata))
+		delete this.donedata
 		this.sendNoMore=true
 		this.invokedReady()
 	},
@@ -460,8 +461,16 @@ SCxml.prototype={
 			catch(err){}
 		
 		state.fin=true
-		if(state.tagName=="final")
+		if(state.tagName=="final"){
+			var c=this.dom.querySelector("[id="+id+"] > donedata")
+			if(c){
+				this.donedata={}
+				this.readParams(c, this.donedata)
+				c=this.dom.querySelector("[id='"+id+"'] > donedata > content")
+				if(c) this.donedata=c.textContent
+			}
 			return this.finalState(state.parentNode)
+		}
 		return true
 	},
 
@@ -483,6 +492,8 @@ SCxml.prototype={
 		state.fin=true
 		var id=getId(state)
 		var doneEv=new SCxml.Event("done.state."+id)
+		doneEv.data=this.donedata
+		delete this.donedata
 		this.html.dispatchEvent(new CustomEvent("queue", {detail:doneEv}))
 		this.internalQueue.push(doneEv)
 		if(state.parentNode.tagName=="parallel")
@@ -716,7 +727,7 @@ SCxml.prototype={
 				var f=this.dom.querySelector("[id='"+event.invokeid+"'] > finalize")
 				if(f){
 					if(f.firstElementChild) this.execute(f)
-					else this.emptyFinalize(this.invoked[event.invokeid])
+					else this.emptyFinalize(event)
 				}
 			}
 			this.html.dispatchEvent(new CustomEvent("consume", {detail:"external"}))
