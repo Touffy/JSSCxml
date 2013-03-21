@@ -501,8 +501,10 @@ SCxml.prototype={
 		return true
 	},
 
+	// compute the LCCA unless it was already and the transition isn't dynamic
 	findLCCA: function(trans)
 	{
+		if(trans.lcca && !trans.hasAttribute("targetexpr")) return;
 		var source=trans.parentNode, targets=trans.targets
 		trans.internal=false
 		if(targets==null) return trans.lcca=null // targetless
@@ -515,7 +517,8 @@ SCxml.prototype={
 		// determine transition type
 		// get Least Common Compound Ancestor
 		if(source.querySelectorAll(ids).length==targets.length)
-			trans.internal=(trans.getAttribute("type")=="internal")
+			if(trans.internal=(trans.getAttribute("type")=="internal"))
+				return;
 		else while((trans.lcca=trans.lcca.parentNode)
 			.querySelectorAll(ids).length<targets.length );
 		if(!trans.internal && trans.lcca==source)
@@ -541,6 +544,8 @@ SCxml.prototype={
 	{
 		var id=getId(state)
 		if(!(id in this.configuration)) return;
+		
+		state.removeAttribute("willExit")
 		
 		var onexit=this.dom.querySelectorAll("[id="+id+"] > onexit")
 		for(var i=0; i<onexit.length; i++)
@@ -577,66 +582,45 @@ SCxml.prototype={
 		throw(err)
 	},
 	
-	// returns a list of all transitions for an event (or eventless),
-	// in the specified order (see sortedConfiguration below)
-	selectTransitions: function(event, conf)
+	// returns a list of all enabled transitions for an event (or eventless)
+	selectTransitions: function(event)
 	{
-		var that=this
-		function test(e)
+		var sc=this
+		function test(s)
 		{
-			if(e.nodeType!=1 || e.tagName!="transition"
-			|| (event? !(e.hasAttribute("event") && event.match(e))
-				: e.hasAttribute("event"))) return false
-			try{ return !e.hasAttribute("cond")
-				|| that.expr(e.getAttribute("cond"),e)
-			}catch(err) {}
-		}
-		
-		var trans=[]
-		
-		for(var i=0; i<conf.length; i++) for(var j=0, s; s=conf[i][j]; j++)
-		{
-			var t=s.firstElementChild
-			if(!t) continue
-			while(!test(t) && (t=t.nextElementSibling));
-			if(t){
-				// also prepare a bit (just a bit)
-				if(!t.targets){
+			for(var t=s.firstElementChild; t; t=t.nextElementSibling)
+			{
+				if(t.nodeType!=1 || t.tagName!="transition"
+				|| (event? !(t.hasAttribute("event") && event.match(t))
+					: t.hasAttribute("event"))) continue
+
+				var cond=false
+				try{ cond=!t.hasAttribute("cond")
+					|| sc.expr(t.getAttribute("cond"),t)
+				}catch(err) {}
+				if(!cond) continue
+				
+				// compute targets each time if 'targetexpr'
+				if(t.hasAttribute("targetexpr"))
+				{ try{
+					var targets=String(sc.expr(t.getAttribute("targetexpr"),t))
+					if(!targets) t.targets=null
+					else t.targets=targets.split(/\s+/).map(sc.getById,sc)
+					} catch(err){ t.targets=null }
+				}
+				// or just once then reuse it if it's plain old 'target'
+				else if(!t.targets){
 					if(t.hasAttribute("target"))
 						t.targets=t.getAttribute("target")
-						.split(/\s+/).map(this.getById,this)
-					else if(t.hasAttribute("targetexpr"))
-						t.targets=this.expr(t.getAttribute("targetexpr"))
-						.toString().split(/\s+/).map(this.getById,this)
+						.split(/\s+/).map(sc.getById,sc)
 					else t.targets=null
 				}
-				trans.push(t)
-				break
+				return t
 			}
+			return false
 		}
-		return trans.length ? this.preemptTransitions(trans) : trans
-	},
-	
-	// a transition preempts another if its source is a parent of the other's
-	preemptTransitions: function(trans)
-	{
-		var t=trans[0] // the first one can never be preempted
-		this.findLCCA(t)
-		if(trans.length<2) return trans
-
-		var filtered=[trans[0]]
 		
-		overTransitions:
-		for(var i=1; t=trans[i]; i++)
-		{
-			for(var j=0, p; p=filtered[j]; j++)
-				if(t==p || (p.lcca && p.lcca.querySelector(
-					"[id="+getId(t.parentNode)+"]")))
-					continue overTransitions // t is preempted
-			this.findLCCA(t)
-			filtered.push(t)
-		}
-		return filtered
+		return this.statesToEnter.select(test).enabled
 	},
 	
 	mainEventLoop: function()
@@ -672,10 +656,8 @@ SCxml.prototype={
 			if(this.nextPauseBefore>=2) return this.pause()
 			if(this.autoPauseBefore==2) this.nextPauseBefore=2
 			
-			var conf=this.sortedConfiguration()
-			
 			// first try eventless transition
-			var trans=this.selectTransitions(null, conf)
+			var trans=this.selectTransitions(null)
 			if(!trans.length){
 				// if none is enabled, consume internal events
 				var event
@@ -683,7 +665,7 @@ SCxml.prototype={
 				{
 					this.html.dispatchEvent(new CustomEvent("consume", {detail:"internal"}))
 					this.datamodel._event=event
-					trans=this.selectTransitions(event, conf)
+					trans=this.selectTransitions(event)
 					if(trans.length) break
 				}
 			}
@@ -716,7 +698,6 @@ SCxml.prototype={
 		if(this.nextPauseBefore==1) return this.pause()
 		if(this.autoPauseBefore==1) this.nextPauseBefore=1
 
-		var conf=this.sortedConfiguration()
 		this.stable=false
 		// consume external events
 		var event, trans
@@ -736,7 +717,7 @@ SCxml.prototype={
 			for(var i in this.invoked) if(this.invoked[i].af)
 				this.invoked[i].onEvent(event)
 			
-			trans=this.selectTransitions(event,conf)
+			trans=this.selectTransitions(event)
 			if(trans.length)
 				return this.takeTransitions(trans)
 		}
@@ -750,25 +731,38 @@ SCxml.prototype={
 	// try to follow transitions, after exiting the source states
 	takeTransitions: function(trans)
 	{
-		// first exit all the states that must be exited
-		for(var i=trans.length-1, t; t=trans[i]; i--)
+		// first mark all the states that must be exited
+		for(var i=0; t=trans[i]; i++)
 		{
+			// preemtion, part II
+			if(t.parentElement.getAttribute("willExit") && t.targets){
+				trans.splice(i--,1)
+				continue
+			}
 			console.log(this.name+": "+getId(t.parentNode)
 				+" → "+(t.targets?"["+t.targets.map(getId)+"]"
 				:"*targetless*"))
+			this.findLCCA(t)
 			if(!t.targets) continue
 			
 			var s=this.dom.createNodeIterator(t.lcca,
 				NodeFilter.SHOW_ELEMENT, SCxml.activeStateFilter)
-			var rev=[], v
-			if(s.nextNode()!=t.lcca) rev.push(s.previousNode())
-			while(v=s.nextNode()) rev.push(v)
-			rev.reverse().forEach(this.saveHistory, this)
-			this.html.dispatchEvent(new CustomEvent("exit", {detail:
-				{list: rev.filter(this.exitState, this).map(getId)} }))
+			var v=s.nextNode()
+			if(v && v!=t.lcca) v.setAttribute("willExit",true)
+			while(v=s.nextNode()) v.setAttribute("willExit",true)
 			s.detach()
 		}
-
+		// now exit in reverse document order
+		var toExit=this.dom.querySelectorAll("[willExit]")
+		var rev=[]
+		if(toExit.length)
+		{
+			for(i=toExit.length-1; i>=0; i--) rev.push(toExit[i])
+			rev.forEach(this.saveHistory, this)
+			this.html.dispatchEvent(new CustomEvent("exit", {detail:
+				{list: rev.filter(this.exitState, this).map(getId)} }))
+		}
+		
 		// now, between exit and entry, run the executable content if present
 		for(i=0; t=trans[i]; i++)
 		{
@@ -776,6 +770,7 @@ SCxml.prototype={
 			catch(err){}
 		}
 
+		var currentConf=this.statesToEnter
 		this.statesToEnter=null
 		// then enter all the states to enter
 		for(i=0; t=trans[i]; i++) if(t.targets)
@@ -784,6 +779,7 @@ SCxml.prototype={
 			this.html.dispatchEvent(new CustomEvent("enter", {detail:{list:
 				this.statesToEnter.inEntryOrder()
 				.filter(this.enterState,this).map(getId)} }))
+		else this.statesToEnter=currentConf
 	},
 
 	// returns the immediate or deep (atomic) active children
@@ -804,20 +800,6 @@ SCxml.prototype={
 		return active
 	},
 
-	// returns an array with all active atomic states, in document order,
-	// each followed by their ancestors from child to parent
-	// (I humbly suggest the above description to the working group :p)
-	sortedConfiguration: function sortedConfiguration()
-	{
-		function ancestors(c)
-		{
-			for(var a=[c]; (c=c.parentNode).nodeName!="scxml";) a.push(c)
-			return a
-		}
-
-		return this.activeChildren(null, true).map(ancestors)
-	},
-	
 	// handles external events
 	onEvent:function(event)
 	{

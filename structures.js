@@ -52,11 +52,6 @@ function CompiledPath(path)
 	
 	this.atomic = this.end.tagName!="parallel"
 }
-CompiledPath.prototype.reverse=function()
-{
-	this.path.reverse()
-	return this
-}
 CompiledPath.prototype.toString=function()
 {
 	return this.path.map(function(s){return s.getAttribute("id")}).join(" → ")
@@ -116,15 +111,47 @@ CompiledTree.prototype.inEntryOrder=function()
 {
 	return this.root.path.concat(this.root.atomic ? [] : this.children.map(function(c){ return c.inEntryOrder() }).reduce(function(a,b){return a.concat(b)})).filter(function(c){return !c.CA})
 }
-CompiledTree.prototype.inExitOrder=function()
-{
-	return (this.root.atomic ? [] : this.children
-		.map(function(c){ return c.inExitOrder() })
-		.reduceRight(function(a,b){return a.concat(b)})
-	).concat(this.root.path.reverse()).filter(function(c){return !c.CA})
-}
 
 CompiledTree.prototype.atoms=function()
 {
 	return this.root.atomic ? [this.root.end] : this.children.map(function(c){ return c.atoms() }).reduce(function(a,b){return a.concat(b)})
+}
+
+// returns the list of enabled transitions and whether they are all targetless
+// 'test' is a function that takes a state as input
+// and returns the first matching transition in the state, if any
+CompiledTree.prototype.select=function(test)
+{
+	var enabled=[]
+	var allChildrenEnabled=true
+	var enabledTargetedTransition=false
+	
+	if(!this.root.atomic){
+		var childSelection
+		for(var i=0; i<this.children.length; i++){
+			childSelection=this.children[i].select(test)
+			if(!childSelection.enabled.length){
+				allChildrenEnabled=false
+				continue
+			}
+			enabled=enabled.concat(childSelection.enabled)
+			enabledTargetedTransition |= childSelection.hasTargets
+		}
+	}
+	else allChildrenEnabled=false
+	
+	if(!allChildrenEnabled){
+		var t
+		for(var p=this.root.path, i=p.length-1; i>=0; i--) if(t=test(p[i])){
+			if(!t.targets)
+				enabled.push(t)
+			else{
+				if(enabledTargetedTransition) break
+				enabled.push(t)
+				enabledTargetedTransition=true
+			}
+			break
+		}
+	}
+	return {hasTargets:enabledTargetedTransition, enabled:enabled}
 }
