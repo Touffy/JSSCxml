@@ -1,7 +1,7 @@
 JSSCxml
 =======
 
-A JavaScript State Chart interpreter that should fully implement the W3C's upcoming [SCXML recommendation](http://www.w3.org/TR/scxml/) in Web browsers.
+A JavaScript State Chart interpreter that fully implements the W3C's upcoming [SCXML recommendation](http://www.w3.org/TR/scxml/) in Web browsers.
 
 The name should be pronounced "JessieXML" or just "Jessie".
 
@@ -18,7 +18,6 @@ Current Features:
 
 - ECMAScript is the only supported datamodel
 - core algorithm is fully conformant with the stable parts of the spec
-- transition preemption is currently slightly different (work in progress in the Working Group, stay tuned)
 - all executable content works as specified, except `<send>` in some cases (see above)
 - DOM interaction is fully supported
 - interpreter JavaScript API including events (documented in dom.html)
