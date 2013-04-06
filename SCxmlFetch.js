@@ -75,15 +75,16 @@ SCxml.executableContent.fetch=function(sc, element)
 	var event=element.getAttribute("callback")
 		||sc.expr(element.getAttribute("callbackexpr"), element)
 
-	var type=element.getAttribute("type")
+	var type=element.getAttribute("type")||element.getAttribute("enctype")
 		||sc.expr(element.getAttribute("typeexpr"), element)
+		||sc.expr(element.getAttribute("enctypeexpr"), element)
 		||"text"
 	var proc
 	if(type in SCxml.xFetch.types)
 		proc=SCxml.xFetch.types[type]
 	if("function" != typeof proc)
 		sc.error("execution",element,
-			new Error('unsupported fetch type "'+type+'"'))
+			new Error('unsupported fetch enctype "'+type+'"'))
 
 	var namelist=element.getAttribute("namelist")
 	var data={}
