@@ -313,12 +313,6 @@ SCxml.prototype={
 		else this.mainEventLoop()
 	},
 	
-	pauseNext: function(macrostep)
-	{
-		this.nextPauseBefore=2-!!macrostep
-		if(this.stable) this.pause()
-	},
-	
 	// find the initial state in the document or in a <state>;
 	// returns null or undefined if the state is atomic or parallel
 	firstState: function(parent)
@@ -641,7 +635,7 @@ SCxml.prototype={
 	// this is called if there were states to invoke in the main loop
 	mainEventLoop2: function()
 	{
-		if(this.internalQueue.length) this.mainEventLoop()
+		if(this.internalQueue.length) return this.mainEventLoop()
 		// macrostep completed and invocation errors handled
 		
 		this.stable=true
@@ -653,9 +647,6 @@ SCxml.prototype={
 	macrostep: function()
 	{
 		while(this.running){
-			if(this.nextPauseBefore>=2) return this.pause()
-			if(this.autoPauseBefore==2) this.nextPauseBefore=2
-			
 			// first try eventless transition
 			var trans=this.selectTransitions(null)
 			if(!trans.length){
@@ -674,30 +665,8 @@ SCxml.prototype={
 		}
 	},
 
-	// NEVER call this directly, use pauseNext() instead
-	pause: function()
-	{
-		if(this.paused || !this.running) return;
-		this.paused=true
-		this.html.dispatchEvent(new Event("pause"))
-		// todo: pause timers
-	},
-	
-	// resume a running SC
-	resume: function()
-	{
-		if(!this.running || !this.paused) return;
-		this.nextPauseBefore=0
-		this.paused=false
-		this.html.dispatchEvent(new Event("resume"))
-		this.mainEventLoop()
-	},
-
 	extEventLoop: function()
 	{
-		if(this.nextPauseBefore==1) return this.pause()
-		if(this.autoPauseBefore==1) this.nextPauseBefore=1
-
 		this.stable=false
 		// consume external events
 		var event, trans
@@ -715,7 +684,7 @@ SCxml.prototype={
 			
 			// autoforward event to invoked sessions
 			for(var i in this.invoked) if(this.invoked[i].af)
-				this.invoked[i].onEvent(event)
+				this.invoked[i].fireEvent(event)
 			
 			trans=this.selectTransitions(event)
 			if(trans.length)
