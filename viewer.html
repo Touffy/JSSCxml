@@ -7,6 +7,7 @@
 	<script src="xhr.js"></script>
 	<script src="structures.js"></script>
 	<script src="SCxml.js"></script>
+	<script src="SCxmlDebug.js"></script>
 	<script src="SCxmlProcessors.js"></script>
 	<script src="SCxmlDatamodel.js"></script>
 	<script src="SCxmlEvent.js"></script>
@@ -29,6 +30,32 @@
 	}
 	to{
 		outline: 3pt solid rgba(0,255,0,0.7);
+	}
+}
+@-webkit-keyframes burn{
+	from{
+		line-height: 11pt;
+		text-shadow: 0px 0px 1px #8ee9ff;
+	}
+	15%{
+		color: rgba(255,238,76,1);
+		text-shadow: 0px 0px 3px #ffb33f;
+	}
+	50%{
+		color: rgba(0,0,0,0);
+		text-shadow: 0px 0px 8px rgba(177,51,0,0.64);
+	}
+	85%{
+		line-height: 2pt;
+		color: rgba(0,0,0,0);
+		opacity: 1.0;
+		text-shadow: 0px -7px 20px rgba(0,0,0,0.42);
+	}
+	to{
+		line-height: 0;
+		color: rgba(0,0,0,0);
+		opacity: 0;
+		text-shadow: 0px -10px 25px rgba(0,0,0,0.42);
 	}
 }
 
@@ -68,6 +95,10 @@ state{
 	-webkit-transition: background-color 0.7s ease-out 0;
 	outline: 0 solid white;
 }
+invoke{
+	color: #ce45d0;
+	float: left;
+}
 state.final{ border-color: red; }
 state.parallel{
 	border: 3px double grey;
@@ -84,12 +115,14 @@ state.active{
 state.exited{
 	-webkit-animation: exit 0.3s linear 0 3 alternate;
 }
-
 textarea{
 	font-family: monospace;
 	min-height: 20em;
 }
-h2 label, input{
+header h2{
+	display: inline;
+}
+input{
 	font-size: 12pt;
 	font-weight: normal;
 }
@@ -97,23 +130,31 @@ h2 label, input{
 li.error{
 	color: red;
 }
+li.burn{
+	-webkit-animation: burn 1.3s linear;
+	display: block; 
+}
 
 	</style>
 </head>
 <body>
 
-<section id="editor"><h2>Editor <input name="parse" type="button" value="Parse"></h2>
+<section id="editor"><header>
+	<h2>Editor</h2>
+	<input name="parse" type="button" value="Parse"> or <input name="load" type="button" value="Load source"> from <input name="src" placeholder="http://" type="url">
+</header>
 
-<textarea cols="80"><scxml xmlns="http://www.w3.org/2005/07/scxml" initial="s1">
+<textarea cols="80"><scxml xmlns="http://www.w3.org/2005/07/scxml">
 </scxml></textarea>
 </section>
 
 
 
-<section id="viewer"><h2>Viewer
-<input name="run" type="button" value="Run" disabled>
-<input name="pause" type="button" value="Pause" disabled>
-<label>autoresume: <input name="speed" type="range" min="500" max="5000" value="1000"></label> (max = no autoresume)</h2>
+<section id="viewer"><header><h2>Viewer</h2>
+	<input name="run" type="button" value="Run" disabled>
+	<input name="pause" type="button" value="Pause" disabled>
+	<label>autoresume: <input name="speed" type="range" min="500" max="5000" value="1000"></label> (max = no autoresume)
+</header>
 
 <table><tbody><tr>
 <td class="queue"><h3>internal queue</h3>
@@ -138,6 +179,11 @@ li.error{
 
 <script>
 
+SCxml.prototype.xhrResponse=function(xhr){
+	document.getElementsByTagName("textarea")[0].value=xhr.req.responseText
+	this.interpret(xhr.req.responseXML)
+}
+
 function convertNode(e)
 {
 	if(!(e.tagName in SCxml.STATE_ELEMENTS))
@@ -149,6 +195,19 @@ function convertNode(e)
 	h.setAttribute("scid", id)
 	for(var cn, c=e.firstElementChild; c; c=c.nextElementSibling)
 		if(cn=convertNode(c)) h.appendChild(cn)
+	for(var cn, c=e.firstElementChild; c; c=c.nextElementSibling)
+		if(cn=convertInvoke(c)) h.appendChild(cn)
+	return h
+}
+
+function convertInvoke(e)
+{
+	if(e.tagName!="invoke")
+		return null
+	var h=document.createElement("invoke")
+	var id=e.getAttribute("id")
+	h.appendChild(document.createElement("h4")).textContent=id
+	h.setAttribute("scid", id)
 	return h
 }
 
@@ -160,15 +219,20 @@ function convertSCXML(dom){
 	return d
 }
 
-parse=document.querySelector("input[name=parse]")
-run=document.querySelector("input[name=run]")
-pause=document.querySelector("input[name=pause]")
-speed=document.querySelector("input[name=speed]")
+UI={
+	parse:document.querySelector("input[name=parse]"),
+	load:document.querySelector("input[name=load]"),
+	src:document.querySelector("input[name=src]"),
+	run:document.querySelector("input[name=run]"),
+	pause:document.querySelector("input[name=pause]"),
+	speed:document.querySelector("input[name=speed]"),
+	
+	view:document.getElementById("viewer"),
+	intQ:document.getElementById("internal"),
+	extQ:document.getElementById("external")
+}
 
-view=document.getElementById("viewer")
 sc=null
-intQ=document.getElementById("internal")
-extQ=document.getElementById("external")
 
 function enter(id)
 {
@@ -187,43 +251,51 @@ function exit(id)
 function clearQueues()
 {
 	var c
-	while(c=intQ.firstChild) intQ.removeChild(c)
-	while(c=extQ.firstChild) extQ.removeChild(c)
+	while(c=UI.intQ.firstChild) UI.intQ.removeChild(c)
+	while(c=UI.extQ.firstChild) UI.extQ.removeChild(c)
 }
 
 function queue(e)
 {
+	if(e.target.interpreter!=sc) return;
 	var h=document.createElement("li")
 	h.textContent=e.detail.name
 	if(/^error/.test(e.detail.name)) h.classList.add("error")
-	;(e.detail.type=="external"?extQ:intQ).appendChild(h)
+	;(e.detail.type=="external"?UI.extQ:UI.intQ).appendChild(h)
 }
 function consume(e)
 {
-	var q=(e.detail=="external"?extQ:intQ)
-	q.removeChild(q.firstElementChild)
+	if(e.target.interpreter!=sc) return;
+	for(var c=(e.detail=="external"?UI.extQ:UI.intQ).firstElementChild;
+		c.classList.contains("burn"); c=c.nextElementSibling);
+	c.classList.add("burn")
+	c.addEventListener("webkitAnimationEnd", cleanAshes, true)
+}
+function cleanAshes(e){
+	console.log(e)
+	this.parentNode.removeChild(this)
 }
 
 // UI listeners
 
-run.onclick=function(e)
+UI.run.onclick=function(e)
 {
 	sc.pauseNext()
 	sc.start()
-	pause.disabled=false
+	UI.pause.disabled=false
 	this.disabled=true
 }
 
-pause.onclick=function(e)
+UI.pause.onclick=function(e)
 {
 	sc.pauseNext()
 	this.disabled=true
 }
 
-parse.onclick=function(e)
+UI.parse.onclick=function(e)
 {
-	pause.disabled=true
-	run.disabled=true
+	UI.pause.disabled=true
+	UI.run.disabled=true
 	document.forms[0][1].disabled=true
 	document.forms[1][2].disabled=true
 	document.querySelector("#viewer td+td+td")
@@ -233,6 +305,22 @@ parse.onclick=function(e)
 	clearQueues()
 	if(sc) sc.clean()
 	sc=new SCxml(document.getElementsByTagName("textarea")[0].value)
+	sc.autoPauseBefore=SCxml.ALL_EVENTS
+}
+
+UI.load.onclick=function(e)
+{
+	UI.pause.disabled=true
+	UI.run.disabled=true
+	document.forms[0][1].disabled=true
+	document.forms[1][2].disabled=true
+	document.querySelector("#viewer td+td+td")
+		.removeChild(document.querySelector("#viewer div.scxml"))
+	var rm=document.head.getElementsByTagName("scxml")
+	for(var i=0; i<rm.length; i++) document.head.removeChild(rm[i])
+	clearQueues()
+	if(sc) sc.clean()
+	sc=new SCxml(UI.src.value)
 	sc.autoPauseBefore=SCxml.ALL_EVENTS
 }
 
@@ -255,7 +343,8 @@ document.forms[1].onsubmit=function(e){
 // SCxml listeners
 
 document.head.addEventListener("ready", function(e){
-	run.disabled=false
+	if(e.target.interpreter!=sc) return;
+	UI.run.disabled=false
 	document.forms[0][1].disabled=false
 	document.forms[1][2].disabled=false
 	document.querySelector("#viewer td+td+td")
@@ -263,28 +352,33 @@ document.head.addEventListener("ready", function(e){
 }, true)
 
 document.head.addEventListener("exit", function(e){
+	if(e.target.interpreter!=sc) return;
 	e.detail.list.forEach(exit)
 }, true)
 document.head.addEventListener("enter", function(e){
+	if(e.target.interpreter!=sc) return;
 	setTimeout(applyEnter, 0, e.detail.list)
 }, true)
 
 document.head.addEventListener("finished", function(e){
-	run.disabled=true
-	pause.disabled=true
+	if(e.target.interpreter!=sc) return;
+	UI.run.disabled=true
+	UI.pause.disabled=true
 }, true)
 
 document.head.addEventListener("pause", function(e){
-	pause.disabled=false
-	pause.value="resume"
-	pause.onclick=function(e){ sc.resume() }
-	if(speed.value<5000)
-	setTimeout(pause.onclick, +speed.value)
+	if(e.target.interpreter!=sc) return;
+	UI.pause.disabled=false
+	UI.pause.value="resume"
+	UI.pause.onclick=function(e){ sc.resume() }
+	if(UI.speed.value<5000)
+	setTimeout(UI.pause.onclick, +UI.speed.value)
 }, true)
 
 document.head.addEventListener("resume", function(e){
-	pause.value="pause"
-	pause.onclick=function(e)
+	if(e.target.interpreter!=sc) return;
+	UI.pause.value="pause"
+	UI.pause.onclick=function(e)
 	{
 		sc.pauseNext()
 		this.disabled=true
