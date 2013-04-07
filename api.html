@@ -10,6 +10,9 @@ article h1{
 article{
 	margin-bottom: 2em;
 }
+.debug{
+	color: #a68000;
+}
 	</style>
 </head>
 <body>
@@ -78,6 +81,8 @@ article{
 
 <article><h1><code>pauseNext(boolean <var>macrostep</var>)</code></h1>
 
+<p class="debug">requires SCxmlDebug.js</p>
+
 <p>will pause the interpreter before the next microstep, or macrostep if the argument is <code>true</code>. Note that this method returns before the interpreter is actually paused, unless it was stable.</p>
 
 <p>Warning: at this time, delayed events can and will be added (but not processed) while the interpreter is paused, which may cause your SC to behave differently than normal when using the pause functionnality to debug it.</p>
@@ -85,10 +90,12 @@ article{
 
 <article><h1><code>clean()</code></h1>
 
-<p>Removes the interpreter's anchor (only if it is an <code>&lt;scxml&gt;</code> element) and datamodel <code>&lt;iframe&gt;</code> from the document, and also a bunch of references to facilitate garbage collection. You must not call this while the interpreter is running, of course.</p>
+<p>Removes the interpreter's anchor (only if it is an <code>&lt;scxml&gt;</code> element) and datamodel <code>&lt;iframe&gt;</code> from the document, and also a bunch of references to facilitate garbage collection. If you call this while the interpreter is running, it will first try to terminate properly.</p>
 </article>
 
 <article><h1><code>resume()</code></h1>
+
+<p class="debug">requires SCxmlDebug.js</p>
 
 <p>immediately resumes a paused interpreter.</p>
 </article>
