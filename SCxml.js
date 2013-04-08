@@ -45,6 +45,7 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	this.statesToEnter=null
 	this.invoked={}
 	this.toInvoke=new Set()
+	this.lastEvent=undefined
 	
 	this.sid=SCxml.sessions.length
 	SCxml.sessions.push(this)
@@ -52,6 +53,9 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	 : document.head.appendChild(document.createElement("scxml"))
 	this.html.interpreter=this
 	
+	this.delays={}
+	this.timeouts=[]
+	this.intervals=[]
 	this.initIframe(data)
 	
 	this.running=false
@@ -94,6 +98,15 @@ SCxml.parseSCXMLTags=function ()
 
 SCxml.prototype={
 
+	timeout: function(args)
+	{
+		return new Timeout(args, !this.paused)
+	},
+	interval: function(args)
+	{
+		return new Interval(args, !this.paused)
+	},
+
 	clean: function()
 	{
 		if(this.readyState==SCxml.RUNNING) this.terminate()
@@ -102,9 +115,6 @@ SCxml.prototype={
 			this.html.parentNode.removeChild(this.html)
 		delete this.html
 		
-		delete this.datamodel._sc
-		delete this.datamodel._event
-		delete this.datamodel._ioprocessors
 		delete this.datamodel
 
 		document.body.removeChild(this._iframe_)
@@ -185,7 +195,7 @@ SCxml.prototype={
 				console.warn("binding='"+getAttribute("binding")+"' in"
 				+ this.dom.documentURI +" is not valid")
 			this.lateBinding=(getAttribute("binding")=="late")
-			this.datamodel._name=getAttribute("name")
+			if(hasAttribute("name")) this.name=getAttribute("name")
 		}
 		
 		with(this.dom)
@@ -247,10 +257,7 @@ SCxml.prototype={
 			throw err
 		}
 		
-		var lb=this.lateBinding // just temporarily forget this
-		this.lateBinding=true	// to let execute() do its job
-		
-		// interpret top-level <datamodel> and scripts if present
+		// interpret top-level <datamodel> if present
 		var d=dom.querySelector("scxml > datamodel")
 		if(d) try{this.execute(d)} catch(err){}
 
@@ -266,6 +273,7 @@ SCxml.prototype={
 			}
 		}
 
+		// interpret top-level <script>s if present
 		d=dom.querySelectorAll("scxml > script")
 		for(i=0; i<d.length; i++) if(!this.inInvoke(d[i]))
 			try{this.wrapScript(d[i].textContent,d[i])} catch(err){}
@@ -275,13 +283,11 @@ SCxml.prototype={
 		d=dom.querySelectorAll("scxml > * datamodel")
 		for(i=0; i<d.length; i++) if(!this.inInvoke(d[i]))
 		{
-			if(lb)
-				try{this.declare(d[i])} catch(err){}
+			if(this.lateBinding)
+				try{d[i].unbound=true; this.declare(d[i])} catch(err){}
 			else
 				try{this.execute(d[i])} catch(err){}
 		}
-		// now restore lateBinding
-		this.lateBinding=lb
 		
 		this.running=true
 		this.readyState=SCxml.READY
@@ -444,6 +450,15 @@ SCxml.prototype={
 		this.configuration[id]=state
 		state.setAttribute("active",true)
 		
+		var dm
+		if(this.lateBinding
+		&& (dm=this.dom.querySelector("[id="+id+"] > datamodel"))
+		&& ('unbound' in dm)){
+			console.log("binding late")
+			delete dm.unbound
+			try{this.execute(dm)} catch(err){}
+		}
+
 		var onentry=this.dom.querySelectorAll("[id="+id+"] > onentry")
 		if(state.executeAfterEntry)
 		{
@@ -655,7 +670,7 @@ SCxml.prototype={
 				while(event=this.internalQueue.shift())
 				{
 					this.html.dispatchEvent(new CustomEvent("consume", {detail:"internal"}))
-					this.datamodel._event=event
+					this.lastEvent=event
 					trans=this.selectTransitions(event)
 					if(trans.length) break
 				}
@@ -672,7 +687,7 @@ SCxml.prototype={
 		var event, trans
 		while(event=this.externalQueue.shift())
 		{
-			this.datamodel._event=event
+			this.lastEvent=event
 			if(event.invokeid && (event.invokeid in this.invoked)){
 				var f=this.dom.querySelector("[id='"+event.invokeid+"'] > finalize")
 				if(f){
