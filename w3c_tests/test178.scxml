@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- we test that multiple key/value pairs are included, even when the keys are the same. --><scxml xmlns="http://www.w3.org/2005/07/scxml" initial="s0" version="1.0" datamodel="ecmascript">
+  
+<state id="s0">
+  <onentry>
+   <send event="event1">
+    <param name="Var1" expr="2"/>
+    <param name="Var1" expr="3"/>
+    </send>
+     </onentry>
+
+  <transition event="event1" cond="_event.data.Var1.length==2" target="pass"/>
+  <transition event="*" target="fail"/>
+ 
+ </state>
+
+
+<final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
+<final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+
+</scxml>

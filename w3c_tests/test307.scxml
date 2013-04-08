@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?><scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="s0" binding="late">
+
+<!-- with binding=late, in s0 we access a variable that isn't created until we get to s1.  Then in s1 we access a non-existent substructure of a variable. Both should yield 'undefined' without error  -->
+
+<state id="s0">
+  <onentry>
+  	<if cond="Var1===undefined">
+    	<raise event="foo"/>
+  	</if>
+   </onentry>
+   <transition event="foo" target="s1"/>
+   <transition event="*" target="fail"/>
+   </state>
+   
+<state id="s1">
+  <datamodel>
+  <data id="Var1" expr="1"/>
+ </datamodel>
+ 
+  <onentry>
+    <if cond="Var1.bar===undefined">
+      <raise event="bar"/>
+    </if>
+   </onentry>
+
+   <transition event="bar" target="pass"/>
+   <transition event="*" target="fail"/>
+
+</state>
+    
+<final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
+<final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+   
+</scxml>

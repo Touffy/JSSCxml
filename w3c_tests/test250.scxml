@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- test that the onexit handlers run in the invoked process if it is cancelled. --><scxml xmlns="http://www.w3.org/2005/07/scxml" initial="s0" version="1.0" datamodel="ecmascript">
+
+     
+<state id="s0">
+  <onentry>
+    <send event="foo"/>
+    </onentry>
+   
+     <invoke type="http://www.w3.org/TR/scxml/">
+         <content>
+           <scxml initial="sub0" version="1.0" datamodel="ecmascript">
+<!-- (test 250) test that the onexit handlers run in the invoked process if it is cancelled. -->             <state id="sub0" initial="sub01">
+               <datamodel><data id="exitedSub01" expr="false"/></datamodel>
+               <onentry>
+                <send event="timeout" delay="2s"/>
+                  </onentry>
+                 <transition event="timeout" target="subFinal"/>
+              <onexit>
+	             <if cond="exitedSub01">
+	             	<log label="Outcome" expr="'pass'"/>
+	             <else/>
+	 	            <log label="Outcome" expr="'fail'"/>
+	             </if>
+                </onexit>
+             <state id="sub01">
+             <onexit>
+               <assign location="exitedSub01" expr="true"/>
+           </onexit>
+        </state>
+      </state>
+        <final id="subFinal">
+          <onentry>
+           <log label="Outcome" expr="'fail'"/>
+          </onentry>
+         </final> 
+      </scxml>
+      </content>
+      </invoke>
+      
+     <!-- this transition will cause the invocation to be cancelled -->
+     <transition event="foo" target="final"/>
+   </state>
+ 
+<final id="final"/>
+</scxml>

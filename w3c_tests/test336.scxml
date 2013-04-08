@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!-- test that the origin field of an external event contains a URL that lets you send back to the originator.  In
-this case it's the same session, so if we get bar we succeed --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" datamodel="ecmascript" version="1.0" name="machineName">  
+this case it's the same session, so if we get bar we succeed --><scxml xmlns="http://www.w3.org/2005/07/scxml" initial="s0" datamodel="ecmascript" version="1.0">
    
  <state id="s0">
    <onentry>
