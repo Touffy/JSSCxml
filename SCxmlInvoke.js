@@ -40,7 +40,7 @@ SCxml.prototype.invoke=function(inv)
 	
 	var type=inv.getAttribute("type")
 		||this.expr(inv.getAttribute("typeexpr"), inv)
-		||"SCXML"
+		||"scxml"
 	
 	if(!(type in SCxml.invokeTypes)){
 		type=type.replace(/\/$/, "")
