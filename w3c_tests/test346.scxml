@@ -1,6 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?><!-- test that any attempt to change the value of a system variable causes error.execution to be raised.  
-Event1..4 are there to catch the case where the error event is not raised. In cases where it is, we have
-to dispose of eventn in the next state, hence the targetless transitions (which simply throw away the event.) --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" version="1.0" datamodel="ecmascript" name="machineName">
+<?xml version="1.0" encoding="UTF-8"?><!-- test that any attempt to change the value of a system variable causes error.execution to be raised. --><scxml xmlns="http://www.w3.org/2005/07/scxml" initial="s0" version="1.0" datamodel="ecmascript">
 
    
  <state id="s0">
