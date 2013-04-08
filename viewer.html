@@ -6,6 +6,7 @@
 	
 	<script src="xhr.js"></script>
 	<script src="structures.js"></script>
+	<script src="delays.js"></script>
 	<script src="SCxml.js"></script>
 	<script src="SCxmlDebug.js"></script>
 	<script src="SCxmlProcessors.js"></script>
@@ -272,7 +273,6 @@ function consume(e)
 	c.addEventListener("webkitAnimationEnd", cleanAshes, true)
 }
 function cleanAshes(e){
-	console.log(e)
 	this.parentNode.removeChild(this)
 }
 
