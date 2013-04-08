@@ -4,8 +4,8 @@ SCxml.EventProcessors={
 		name:"http://www.w3.org/TR/scxml/#SCXMLEventProcessor",
 		createEvent: function(name, sc, data)
 		{
-			return new SCxml.ExternalEvent(name, "#_"+sc.sid,
-				SCxml.EventProcessors.SCXML.name, "", data)
+			return new SCxml.ExternalEvent(name, "#_scxml_"+sc.sid,
+				SCxml.EventProcessors.SCXML.name, undefined, data)
 		},
 		send: function(event, target, element, sc)
 		{
