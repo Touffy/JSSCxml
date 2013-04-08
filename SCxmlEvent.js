@@ -11,25 +11,33 @@ SCxml.Event=function SCxmlEvent(name, type)
 	this.type=type||"platform"
 }
 
-SCxml.Event.prototype.toString=function ()
-{ return "SCxmlEvent("+this.name+")" }
-SCxml.Event.prototype.match=function (t)
-// matches transitions and events, e.g. "user.*" matches "user.login"
-// the argument is an actual <transtion> element
-{
-	var patterns=t.getAttribute("event").split(/\s+/)
-	var event=this.name.split(".")
-	
-	overPatterns: for(var i=0, p; p=patterns[i]; i++)
-	{
-		if((p=p.split(".")).length>event.length) continue
-		for(var j=0; j<p.length; j++)
-			if(p[j]!="*" && p[j]!=event[j]) continue overPatterns
-		return true
-	}
-	return false
-}
+SCxml.Event.prototype={
+	constructor: SCxml.Event,
+	toString: function (){ return "SCxmlEvent("+this.name+")" },
 
+	origin:undefined,
+	origintype:undefined,
+	sendid:undefined,
+	invokeid:undefined,
+	data:undefined,
+	
+	match: function (t)
+	// matches transitions and events, e.g. "user.*" matches "user.login"
+	// the argument is an actual <transtion> element
+	{
+		var patterns=t.getAttribute("event").split(/\s+/)
+		var event=this.name.split(".")
+		
+		overPatterns: for(var i=0, p; p=patterns[i]; i++)
+		{
+			if((p=p.split(".")).length>event.length) continue
+			for(var j=0; j<p.length; j++)
+				if(p[j]!="*" && p[j]!=event[j]) continue overPatterns
+			return true
+		}
+		return false
+	}
+}
 
 // sub-constructors for internal, error and external events:
 
@@ -58,10 +66,10 @@ SCxml.ExternalEvent=function (name, origin, origintype,
 	invokeid, data)
 {
 	SCxml.Event.call(this, name, "external")
-	this.origin=origin||""
-	this.origintype=origintype||""
-	this.invokeid=invokeid||""
-	this.data=data||{}
+	this.origin=origin
+	this.origintype=origintype
+	this.invokeid=invokeid
+	this.data=data
 }
 SCxml.ExternalEvent.prototype=new SCxml.Event()
 SCxml.ExternalEvent.prototype.constructor=SCxml.ExternalEvent
