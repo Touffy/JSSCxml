@@ -152,7 +152,6 @@ SCxml.executableContent={
 	data: function(sc, element)
 	{
 		var value=element.getAttribute("expr")
-		if(!sc.lateBinding) return // do not reinitialize again
 		var id=element.getAttribute("id")
 		// create the variable first, so it's "declared"
 		// even if the assignment part fails or doesn't occur
