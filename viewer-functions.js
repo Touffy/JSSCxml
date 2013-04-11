@@ -98,7 +98,7 @@ function convertTransition(e)
 	{
 		var cond=e.getAttribute("cond")
 		h.setAttribute("cond", cond)
-		h.appendChild(document.createElement("span")).textContent=cond
+		h.appendChild(document.createElement("code")).textContent=cond
 	}
 	if(e.hasAttribute("target"))
 		h.setAttribute("target", e.getAttribute("target"))
