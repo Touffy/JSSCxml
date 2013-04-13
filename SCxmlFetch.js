@@ -1,11 +1,15 @@
-SCxml.xFetch={
+if(!("http://www.jsscxml.org" in SCxml.executableContentNS))
+	SCxml.executableContentNS["http://www.jsscxml.org"]={}
+
+with({exc:SCxml.executableContentNS["http://www.jsscxml.org"]}){
+
+exc._support_={
 	xmls:function (o, element){
 		if(o instanceof Element || o instanceof Document)
-			return SCxml.xFetch._xmls.serializeToString(o)
+			return new XMLSerializer().serializeToString(o)
 		sc.error("execution",element,
 			new TypeError('"xml" type requires a Document or Element.'))
 	},
-	_xmls:new XMLSerializer(),
 	urls:function (o, element){
 		if((typeof o)!="object")
 			sc.error("execution",element,new TypeError(
@@ -49,26 +53,25 @@ SCxml.xFetch={
 		}
 	}
 }
-SCxml.xFetch.types={
+exc._support_.types={
 	"json": JSON.stringify,
-	"xml": SCxml.xFetch.xmls,
-	"url": SCxml.xFetch.urls,
+	"xml": exc._support_.xmls,
+	"url": exc._support_.urls,
 	"text": String
 }
 
 
-SCxml.prototype.xFetchReadHeaders=function(element, headers)
+SCxml.prototype.readHeaders=function(element, headers)
 {
 	for(var c=element.firstElementChild; c; c=c.nextElementSibling)
-	if(c.tagName=="header"){
+	if(c.localName=="header"){
 		var name=c.getAttribute("name")
 		var value=c.getAttribute("value") || this.expr(c.getAttribute("expr"), c)
 		if(name && value) headers[name] = value
 	}
 }
 
-
-SCxml.executableContent.fetch=function(sc, element)
+exc.fetch=function(sc, element)
 {
 	var target=element.getAttribute("target")
 		||sc.expr(element.getAttribute("targetexpr"), element)
@@ -80,8 +83,8 @@ SCxml.executableContent.fetch=function(sc, element)
 		||sc.expr(element.getAttribute("enctypeexpr"), element)
 		||"text"
 	var proc
-	if(type in SCxml.xFetch.types)
-		proc=SCxml.xFetch.types[type]
+	if(type in exc._support_.types)
+		proc=exc._support_.types[type]
 	if("function" != typeof proc)
 		sc.error("execution",element,
 			new Error('unsupported fetch enctype "'+type+'"'))
@@ -95,10 +98,14 @@ SCxml.executableContent.fetch=function(sc, element)
 			data[name]=sc.expr(name)
 	}
 	sc.readParams(element, data)
-	var headers={"Content-Type":SCxml.xFetch.mime[type]}
-	sc.xFetchReadHeaders(element, headers)
+	var headers={"Content-Type":exc._support_.mime[type]}
+	sc.readHeaders(element, headers)
 	var c=element.firstElementChild
 	if(c && c.tagName=="content") data=c.textContent
 	
-	new SCxml.xFetch.Request(target, sc, event, headers, proc(data))
+	new exc._support_.Request(target, sc, event, headers, proc(data))
+}
+
+SCxml.executableContentNS.tolerate.fetch=exc.fetch
+
 }
