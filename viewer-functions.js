@@ -11,7 +11,7 @@ function drawTransition(t)
 	
 	clearArrows(t)
 	
-	var oxl=+t.offsetLeft+1
+	var oxl=+t.offsetLeft-1
 	var oxr=+t.offsetLeft+t.offsetWidth-1
 	var oy=+t.offsetTop+t.offsetHeight-2
 	
@@ -28,12 +28,12 @@ function drawTransition(t)
 			+' '+(dxl-x)+' '+dy+' '+dxl+' '+dy
 		}
 		else if(dxr < oxl){
-			x=(oxl-drx)/2
+			x=(oxl-dxr)/2
 			d='M '+oxl+' '+oy+' C '+(oxl-x)+' '+oy
 			+' '+(dxr+x)+' '+dy+' '+dxr+' '+dy
 		}
 		else{
-			x=Math.abs(orx-dxr)
+			x=Math.abs(oxr-dxr)/2
 			d='M '+oxr+' '+oy+' C '+(oxr+x)+' '+oy
 			+' '+(dxr+x)+' '+dy+' '+dxr+' '+dy
 		}
