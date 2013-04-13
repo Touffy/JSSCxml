@@ -1,29 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?><!-- tests for <fetching> static ressources -->
-<scxml xmlns="http://www.w3.org/2005/07/scxml">
+<scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:jssc="http://www.jsscxml.org">
 <state id="s1">
 	<onentry>
-		<fetch target="LICENSE.txt" callback="license"/>
+		<jssc:fetch target="LICENSE.txt" callback="license"/>
 	</onentry>
 	<transition event="license.done" cond="_event.data.status==200" target="s2"/>
 	<transition event="*" target="fail"/>
 </state>
 <state id="s2">
 	<onentry>
-		<fetch target="DoesNotExist" callback="e404"/>
+		<jssc:fetch target="DoesNotExist" callback="e404"/>
 	</onentry>
 	<transition event="e404.done" cond="_event.data.status==404" target="s3"/>
 	<transition event="*" target="fail"/>
 </state>
 <state id="s3">
 	<onentry>
-		<fetch target="http://localhost:1/" callback="crossorigin"/>
+		<jssc:fetch target="http://localhost:1/" callback="crossorigin"/>
 	</onentry>
 	<transition event="crossorigin.failed" target="s4"/>
 	<transition event="*" target="fail"/>
 </state>
 <state id="s4">
 	<onentry>
-		<fetch target="Wrong://URI" callback="wrong"/>
+		<jssc:fetch target="Wrong://URI" callback="wrong"/>
 	</onentry>
 	<transition event="error.communication.wrong" target="pass"/>
 	<transition event="*" target="fail"/>
