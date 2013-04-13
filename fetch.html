@@ -18,6 +18,19 @@ article{
 
 <p>The <code>&lt;fetch&gt;</code> element can be used wherever executable content is allowed and has a structure similar to <code>&lt;send&gt;</code>. It provides SCXML running on Web clients with easy access to the familiar HttpRequest facility used in most Web applications, and, unlike <code>&lt;send&gt;</code>, it makes the HTTP response available to the calling SCXML instance by sending callback events.</p>
 
+<section><h1>Namespace</h1>
+
+<p>The namespace for <code>&lt;fetch&gt;</code> as well as its <code>&lt;header&gt;</code> children must be "http://www.jsscxml.org", for which I suggest the shorthand "jssc". Thus:
+<pre>&lt;scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:jssc="http://www.jsscxml.org"&gt;
+…
+&lt;jssc:fetch target=…
+	&lt;jssc:header …/&gt;
+	&lt;content expr="…"/&gt;
+&lt;/jssc:fetch>
+…</pre>
+
+</section>
+
 <section><h1>Attribute detail</h1>
 
 <table><thead><tr>
