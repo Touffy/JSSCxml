@@ -51,22 +51,44 @@ SCxml.parseTime=function (s)
 	return t
 }
 
-// handles executable content
+// handles executable content, including custom namespaced (or not)
 SCxml.prototype.execute=function(element)
 {
-	if(element.tagName in SCxml.executableContent)
-		return SCxml.executableContent[element.tagName](this, element)
-
-	var c=element.firstElementChild
-	while(c)
-	{
-		this.execute(c)
-		c=c.nextElementSibling
+	if(element.namespaceURI==this.dom.documentElement.namespaceURI){
+		if(element.localName in SCxml.executableContent)
+			return SCxml.executableContent[element.localName](this, element)
+		else if(element.localName in SCxml.executableContentNS.tolerate){
+			console.warn("executable element <"+element.tagName+"> should not use default namespace")
+			return SCxml.executableContentNS.tolerate[element.localName](this, element)
+		}
+		else{
+			var c=element.firstElementChild
+			while(c)
+			{
+				this.execute(c)
+				c=c.nextElementSibling
+			}
+		}
+	}
+	else{
+		if(element.namespaceURI in SCxml.executableContentNS){
+			if(element.localName in SCxml.executableContentNS[element.namespaceURI])
+				return SCxml.executableContentNS[element.namespaceURI][element.localName](this, element)
+			else console.warn("executable element <"+element.tagName+"> is not defined in namespace "+element.namespaceURI)
+		}
+		else if(element.localName in SCxml.executableContentNS.tolerate){
+			console.warn("executable element <"+element.tagName+"> should use its own namespace")
+			return SCxml.executableContentNS.tolerate[element.localName](this, element)
+		}
+		else console.warn("missing executable content extension for namespace "+element.namespaceURI+" used with element <"+element.tagName+">")
 	}
 }
 
-// if you want to add a custom executable element, simply add a method
-// to this object, with the name of your new element:
+// if you want to add a custom executable element, add a property
+// to this object named for your namespace URI, and within that,
+// a method with the name of your element
+SCxml.executableContentNS={tolerate:{}}
+
 SCxml.executableContent={
 
 	raise: function(sc, element)
