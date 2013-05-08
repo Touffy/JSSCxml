@@ -1,0 +1,1 @@
+uglifyjs xhr.js structures.js delays.js SCxml.js SCxmlProcessors.js SCxmlDatamodel.js SCxmlEvent.js SCxmlExecute.js SCxmlInvoke.js SCxmlFetch.js --screw-ie8 -m --compress="unsafe=false,unused=false" -o SCxml.ugly.js
