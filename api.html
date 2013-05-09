@@ -85,7 +85,7 @@ article{
 
 <p>will pause the interpreter before the next microstep, or macrostep if the argument is <code>true</code>. Note that this method returns before the interpreter is actually paused, unless it was stable.</p>
 
-<p>Warning: at this time, delayed events can and will be added (but not processed) while the interpreter is paused, which may cause your SC to behave differently than normal when using the pause functionnality to debug it.</p>
+<p>Delayed events' and setTimeout timers will also be paused, although system time will obviously continue ticking so there may be some side-effects. setInterval will be supported soon.</p>
 </article>
 
 <article><h1><code>clean()</code></h1>
