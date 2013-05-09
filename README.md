@@ -22,7 +22,7 @@ Current Features:
 - DOM interaction is fully supported
 - interpreter JavaScript API including events (documented in dom.html)
 - `<fetch>` custom executable element (see fetch.html for documentation)
-- incomplete pause/resume functionality (doesn't pause delayed events yet)
+- pause/resume functionality (also pauses delayed events' and setTimeout timers)
 - works in WebKit-based browsers
 
 ### Known issues
