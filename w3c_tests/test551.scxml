@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?><!-- test that inline content can be used to assign a value to a var.  --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" version="1.0" datamodel="ecmascript">
+<?xml version="1.0" encoding="UTF-8"?><!-- test that inline content can be used to assign a value to a var.  --><scxml xmlns="http://www.w3.org/2005/07/scxml" initial="s0" version="1.0" datamodel="ecmascript">
   <datamodel>
     <data id="Var1">
-     <conf:array123/>
+     [1,2,3]
      </data>
     </datamodel>
     
