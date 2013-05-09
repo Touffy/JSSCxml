@@ -51,7 +51,9 @@ SCxml.prototype.pause=function()
 	if(this.paused || !this.running) return;
 	this.paused=true
 	this.html.dispatchEvent(new Event("pause"))
-	// todo: pause timers
+	for(var i=0, sends=sc.dom.querySelectorAll("send"), send; send=sends[i]; i++)
+		if(send.sent && send.sent.length)
+			for(var j=0, timer; timer=send.sent[j]; j++) timer.stop()
 }
 
 // resume a running SC
@@ -61,5 +63,6 @@ SCxml.prototype.resume=function()
 	this.nextPauseBefore=0
 	this.paused=false
 	this.html.dispatchEvent(new Event("resume"))
+	for(var timer; timer=this.timeouts.pop(); timer.start());
 	this.mainEventLoop()
 }

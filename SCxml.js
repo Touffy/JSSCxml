@@ -100,11 +100,11 @@ SCxml.prototype={
 
 	timeout: function(args)
 	{
-		return new Timeout(args, !this.paused)
+		return new Timeout(args, !this.paused, this)
 	},
 	interval: function(args)
 	{
-		return new Interval(args, !this.paused)
+		return new Interval(args, !this.paused, this)
 	},
 
 	clean: function()

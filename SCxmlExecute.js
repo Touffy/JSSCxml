@@ -152,7 +152,7 @@ SCxml.executableContent={
 		var e=proc.createEvent(event, sc, data, element)
 		if(delay > -1)
 			(element.sent || (element.sent=[])).push(
-				window.setTimeout(proc.send, delay, e, target, element, sc))
+				new Delay(delay, !sc.paused, sc, proc, e, target, element))
 		else proc.send(e, target, element, sc)
 	},
 	
@@ -161,8 +161,7 @@ SCxml.executableContent={
 		var id=element.getAttribute("sendid")
 			||sc.expr(element.getAttribute("sendidexpr"))
 		for(var timer, sent=sc.dom.querySelector("send[id="+id+"]").sent;
-			timer=sent.pop();)
-				try{window.clearTimeout(timer)} catch(err){}
+			timer=sent.pop(); timer.cancel());
 	},
 	
 	log: function(sc, element)
