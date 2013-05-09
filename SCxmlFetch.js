@@ -97,11 +97,9 @@ exc.fetch=function(sc, element)
 		for(var i=0, name; name=namelist[i]; i++)
 			data[name]=sc.expr(name)
 	}
-	sc.readParams(element, data)
+	data=sc.readParams(element, data, true)
 	var headers={"Content-Type":exc._support_.mime[type]}
 	sc.readHeaders(element, headers)
-	var c=element.firstElementChild
-	if(c && c.tagName=="content") data=c.textContent
 	
 	new exc._support_.Request(target, sc, event, headers, proc(data))
 }

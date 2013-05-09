@@ -61,10 +61,12 @@ SCxml.prototype.invoke=function(inv)
 		for(var i=0, name; name=namelist[i]; i++)
 			data[name]=this.expr(name)
 	}
-	this.readParams(inv, data)
+	data=this.readParams(inv, data)
 	var c=this.dom.querySelector("[id='"+id+"'] > content")
 	if(c){
-		if(!c.firstElementChild) src=c.textContent
+		if(c.hasAttribute("expr"))
+			src=this.expr(c.getAttribute("expr"), c)
+		else if(!c.firstElementChild) src=c.textContent
 		else src=new XMLSerializer().serializeToString(c.firstElementChild)
 	}
 	

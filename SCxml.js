@@ -472,12 +472,7 @@ SCxml.prototype={
 		state.fin=true
 		if(state.tagName=="final"){
 			var c=this.dom.querySelector("[id="+id+"] > donedata")
-			if(c){
-				this.donedata={}
-				this.readParams(c, this.donedata)
-				c=this.dom.querySelector("[id='"+id+"'] > donedata > content")
-				if(c) this.donedata=c.textContent
-			}
+			if(c) this.donedata=this.readParams(c, {}, true)
 			return this.finalState(state.parentNode)
 		}
 		return true

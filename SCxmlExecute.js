@@ -24,9 +24,10 @@ SCxml.prototype.assign=function(left, right)
 	else this.datamodel[left]=right
 }
 
-SCxml.prototype.readParams=function(element, data)
+SCxml.prototype.readParams=function(element, data, alsoContent)
 {
 	for(var c=element.firstElementChild; c; c=c.nextElementSibling)
+	{
 		if(c.tagName=="param"){
 			var name=c.getAttribute("name")
 			var value=c.getAttribute("expr") || c.getAttribute("loc")
@@ -40,6 +41,14 @@ SCxml.prototype.readParams=function(element, data)
 				else data[name] = this.expr(value, c)
 			}catch(err){ throw err}
 		}
+		else if(alsoContent && c.tagName=="content"){
+			if(c.hasAttribute("expr"))
+				data=this.expr(c.getAttribute("expr"), c)
+			else data=c.textContent
+			break
+		}
+	}
+	return data
 }
 
 SCxml.parseTime=function (s)
@@ -144,10 +153,7 @@ SCxml.executableContent={
 			for(var i=0, name; name=namelist[i]; i++)
 				data[name]=sc.expr(name)
 		}
-		sc.readParams(element, data)
-		var c=element.firstElementChild
-		if(c && c.tagName=="content")
-			data=c.textContent
+		data=sc.readParams(element, data, true)
 		
 		var e=proc.createEvent(event, sc, data, element)
 		if(delay > -1)
