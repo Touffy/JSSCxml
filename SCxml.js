@@ -472,7 +472,8 @@ SCxml.prototype={
 		state.fin=true
 		if(state.tagName=="final"){
 			var c=this.dom.querySelector("[id="+id+"] > donedata")
-			if(c) this.donedata=this.readParams(c, {}, true)
+			if(c) try{this.donedata=this.readParams(c, {}, true)}
+				catch(err){ this.donedata=null }
 			return this.finalState(state.parentNode)
 		}
 		return true
@@ -664,8 +665,8 @@ SCxml.prototype={
 				var event
 				while(event=this.internalQueue.shift())
 				{
-					this.html.dispatchEvent(new CustomEvent("consume", {detail:"internal"}))
 					this.lastEvent=event
+					this.html.dispatchEvent(new CustomEvent("consume", {detail:"internal"}))
 					trans=this.selectTransitions(event)
 					if(trans.length) break
 				}

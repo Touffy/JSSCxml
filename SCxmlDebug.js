@@ -34,8 +34,8 @@ SCxml.prototype.macrostep=function()
 			var event
 			while(event=this.internalQueue.shift())
 			{
+				this.lastEvent=event
 				this.html.dispatchEvent(new CustomEvent("consume", {detail:"internal"}))
-				this.datamodel._event=event
 				trans=this.selectTransitions(event)
 				if(trans.length) break
 			}

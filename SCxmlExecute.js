@@ -31,15 +31,13 @@ SCxml.prototype.readParams=function(element, data, alsoContent)
 		if(c.tagName=="param"){
 			var name=c.getAttribute("name")
 			var value=c.getAttribute("expr") || c.getAttribute("loc")
-			try{
-				if(data.hasOwnProperty(name))
-				{
-					if(data[name] instanceof Array)
-						data[name].push(this.expr(value, c))
-					else data[name] = [data[name], this.expr(value, c)]
-				}
-				else data[name] = this.expr(value, c)
-			}catch(err){ throw err}
+			if(data.hasOwnProperty(name))
+			{
+				if(data[name] instanceof Array)
+					data[name].push(this.expr(value, c))
+				else data[name] = [data[name], this.expr(value, c)]
+			}
+			else data[name] = this.expr(value, c)
 		}
 		else if(alsoContent && c.tagName=="content"){
 			if(c.hasAttribute("expr"))
