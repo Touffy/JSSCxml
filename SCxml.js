@@ -521,7 +521,8 @@ SCxml.prototype={
 			.join(", ")
 		// determine transition type
 		// get Least Common Compound Ancestor
-		if(source.querySelectorAll(ids).length==targets.length)
+		if(source.querySelectorAll(ids).length==targets.length
+		&& source.tagName!="parallel")
 			if(trans.internal=(trans.getAttribute("type")=="internal"))
 				return;
 		else while((trans.lcca=trans.lcca.parentNode)
