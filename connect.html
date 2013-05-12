@@ -1,0 +1,79 @@
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Connection-like &lt;invoke&gt; documentation</title>
+	<style>
+h1{ font-weight: normal; }
+article h1{
+	background-color: #d7fbc1;
+}
+article{
+	margin-bottom: 2em;
+}
+	</style>
+</head>
+<body>
+
+<h1>JSSCxml connection-like &lt;invoke&gt; extension</h1>
+
+<p>This document describes a proposed extension to the <code>&lt;invoke&gt;</code> element. It would enable SCXML running on Web clients to open a virtual connection to a remote system to send and/or receive events. There is no requirement that the connection be symetrical, and the underlying implementation doesn't have to be a single persistent connection.</p>
+
+<p>The communication protocol and data encoding are defined by the <em>type</em> of invoke; in fact, the type determines whether it is a normal invocation or a connection. JSSC provides the <a href="event-stream.html">event-stream</a> type by default, and a two-way connection using WebSockets should be available later.</p>
+
+<section><h1>Attribute detail</h1>
+
+<p>These attributes are added to <code>&lt;invoke&gt;</code>:
+
+<table><thead><tr>
+<th>Name</th><th>Required</th><th>Type</th><th>Default value</th><th>Valid values</th><th>Description</th></tr>
+</thead><tbody>
+<tr><td>target</td><td rowspan="2">if using a connection type, but never both of those</td><td>URI</td><td>none</td><td>Any value accepted by the type implementation</td><td>The connection will be opened there.</td></tr>
+<tr><td>targetexpr</td><td>Vale expression</td><td>none</td><td></td><td>Evaluates when the <code>&lt;connect&gt;</code> element is executed, used as if there had been a <code>target</code> attribute with the resulting value.</td></tr>
+</tbody></table>
+
+<p>Moreover, the <code>src</code> attribute is forbidden when using a connection type.</p>
+</section>
+
+<section><h1>Children</h1>
+
+<p>Specific connection types may use children (for example <code>param</code>, <code>jssc:header</code> and <code>content</code>) to specify initialization and authentication data. By default, the only useful children are:</p>
+
+<ul>
+	<li>0 or more <code>param</code> elements with the <code>location</code> attribute</li>
+	<li>0 or one <code>finalize</code> element</li>
+</ul>
+
+</section>
+
+<section><h1>Behavior</h1>
+<p>The connection is opened when an invoked session would be started, i.e. when its source state becomes active after a macrostep. The connection is closed when the source state is exited (it may also be closed from the other side for any reason).</p>
+
+<ul><li>If the target is invalid and detected as such immediately, or if the target is unreachable or denied by security restrictions (in fact, for any non-recoverable error raised asynchronously by the underlying implementation), an <code>error.communication.<var>id</var></code> (where <var>id</var> is the invokeid) is placed into the internal queue and the connection attempt is abandonned. Note that in the case of browser-based implementations, the user may see the exact reason in the JavaScript console, but the interpreter may not have that privilege.</li>
+<li>Otherwise, the connection is virtually open and the implementation <em>must</em> attempt to maintain it as long as the element's source state is active. Following redirections (if allowed), as well as reconnection and recovery attempts <em>should</em> be transparent to the SCXML session. Authentification <em>may</em> be exposed to the SCXML session if necessary.</li>
+<li>If the other side explicitly closes the connection in a way that the protocol understands to be permanent, the interpreter <em>must</em> immediately close the connection on its own side and place a <code>done.invoke.<var>id</var></code> event in the external queue. It <em>must not</em> reconnect unless the element's source state is re-entered.</li>
+</ul>
+
+<p>While the connection is open:</p>
+
+<ul>
+<li>If the connection type allows sending, the invokeid (whether specified or generated) preceded by "#_" becomes a valid target for <code>&lt;send&gt;</code> elements with their <code>type</code> attribute set to the type of the connection. Moreover, if the <code>autoforward</code> attribute was present, all events processed by the interpreter <em>must</em> be sent over the connection at the time they are dequeued.</li>
+<li>If the connection type allows receiving, any event received over the connection and destined to the session <em>must</em> be placed into the session's external queue, with its origintype set to the connection type, its origin and its invokeid to the connection's invokeid. Note that a single real connection <em>may</em> be used to dispatch events from the same source to multiple sessions or in response to multiple <code>connect</code> elements, as long as the implementation pretends to have one virtual connection for every connection-like <code>invoke</code>.</li>
+<li>The event's data payload <em>must</em> be decoded (when receiving) or encoded (when sending) as defined by the connection type, including fallback mechanisms. If it is not possible despite any defined fallbacks, an <code>error.execution.parsefailed</code> <em>must</em> be placed in the internal queue and the event's data field <em>must</em> be left empty.</li>
+<li>If a <code>finalize</code> element is present but empty, and the event data can be parsed as key-value pairs, any names (in the namelist) or locations (in params) specified in the connection and present as properties of the event's data <em>must</em> be updated with the values values in the event's data. If instead the <code>finalize</code> element contains executable content, that content is executed. Either action <em>must</em> occur when the event is dequeued, as usual.</li>
+</ul>
+
+<p>When the <code>invoke</code> element's source state is exited, the connection is closed. When relevant, the other side <em>should</em> be notified according to the actual protocol used. No <code>done</code> event is generated by the interpreter when the connection is closed in this way.</p>
+
+<p>As soon as a connection is closed for whatever reason, the interpreter <em>must not</em> send anymore events over it and it <em>must</em> ignore any further events that it receives from it.</p>
+
+</section>
+
+<section><h1>Definition in JSSC</h1>
+
+<p>Invoke types in JSSC are represented by properties of the <code>SCxml.invokeTypes</code> object. Adding a new type, whether connection-like or normal invokes, simply means adding a new object. In the case of connection-like types, instead of an <code>instantiate</code> method, the object should have an <code>open</code> method with the same arguments, except that the first argument passed to it will be the target instead of the source.</p>
+
+</section>
+
+
+</body>
+</html>

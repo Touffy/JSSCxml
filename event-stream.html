@@ -1,0 +1,79 @@
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>The "event-stream" invoke type</title>
+	<style>
+h1{ font-weight: normal; }
+article h1{
+	background-color: #d7fbc1;
+}
+article{
+	margin-bottom: 2em;
+}
+	</style>
+</head>
+<body>
+
+<h1>JSSCxml's <code>&lt;invoke type="event-stream"&gt;</code></h1>
+
+<p>The event-stream connection type uses the EventSource's event-stream protocol to receive events from a Web server over a persistent HTTP connection. It is a one-way stream: sending information back to the server must be done through another channel, such as <code>fetch</code>.</p>
+
+<p>While limited, it has the advantage of working over HTTP, it is standard, simple and robust, and fills an important role in client-side software.</p>
+
+<p>The full URI of the type should be "http://www.jsscxml.org/event-stream/" and the short-hand name used in JSSC is "event-stream".</p>
+
+<section><h1>Valid targets</h1>
+
+<p>Any URI supported by the underlying EventSource implementation. In Web browsers, that means any HTTP URL (of course, it will still fail if the server doesn't reply with an event-stream at that location).</p>
+
+</section>
+
+<section><h1>Data encoding</h1>
+
+<p>The <em>event:</em> descriptor <em>must not</em> be used in the event-stream to indicate the name of events, since the EventSource wrapper is a DOM EventTarget interface and it would be silly to implement another one just to be able to react to all events. Instead, events are transmitted as default-named messages with <em>data:</em> lines, the first of which sets the event name (after trimming any white space). If more lines are present, they must contain a single JSON-like representation of the event data:</p>
+
+<pre>data: event.name
+data:{
+data:	var1: 1,
+data:	var2: /regex/
+data:}</pre>
+
+<p>Note that the data in the above example is not JSON because the property names are unquoted and one of the values is a litteral RegExp. The only requirement in this specification is that implementations <em>must</em> support basic JSON and fall back to plain text. However, they <em>may</em> support better JavaScript serializations.</p>
+
+<p>On an implementation that only supports basic JSON, the resulting event will be:</p>
+
+<dl>
+	<dt>name</dt>
+	<dd>"event.name"</dd>
+	<dt>origin</dt>
+	<dd>"#_"+<var>invokeid</var></dd>
+	<dt>origintype</dt>
+	<dd>"event-stream"</dd>
+	<dt>type</dt>
+	<dd>"external"</dd>
+	<dt>sendid</dt>
+	<dd>undefined</dd>
+	<dt>invokeid</dt>
+	<dd><var>invokeid</var></dd>
+	<dt>data</dt>
+	<dd>"{\n\tvar1: 1,\n\tvar2: /regex/\n}"</dd>
+</dl>
+
+<p>The data field contains an unparsed string because the basic JSON parser failed. A platform with a better parser would put the intended object there instead.</p>
+
+</section>
+
+<section><h1>Server-side termination</h1>
+
+<p>The connection terminates in all the usual conditions for the EventSource interface; also, if it receives an event that matches "done.*", it will terminate after dispatching that event.</p>
+
+</section>
+
+<section><h1>Children</h1>
+
+<p>No payload nor custom headers may be sent to the target for initialization, so only <code>param</code>s or <code>content</code> with an object value, and <code>finalize</code> are allowed. Note that an empty <code>finalize</code> will not work if the received event data cannot be parsed as an object.</p>
+
+</section>
+
+</body>
+</html>
