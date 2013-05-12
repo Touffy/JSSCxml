@@ -220,7 +220,7 @@ SCxml.prototype={
 	inInvoke: function (element)
 	{
 		for(var c=element.parentElement; c!=this.dom.documentElement; c=c.parentElement)
-			if(c.tagName=="invoke") return true
+			if(c.tagName=="content") return true
 		return false
 	},
 

@@ -8,8 +8,6 @@ SCxml.invokeTypes={
 			sc.name=id
 			sc.parent=psc
 			sc.sharedData=data
-			// TODO: inject the data after datamodel init but before
-			// running global scripts
 			return sc
 		}
 	}
@@ -19,7 +17,7 @@ SCxml.prototype.invokeAll=function()
 {
 	var invs=this.dom.querySelectorAll("*[active] > invoke")
 	for(var i=0; i<invs.length; i++){
-		try{ this.invoke(invs[i]) } catch(err){throw err}
+		try{ this.invoke(invs[i]) } catch(err){}
 	}
 	return this.toInvoke.length
 }
@@ -27,7 +25,7 @@ SCxml.prototype.cancelInvoke=function(inv)
 {
 	if(!(inv in this.invoked))
 		return false
-	try{ this.invoked[inv].clean() } catch(err){throw err}
+	try{ this.invoked[inv].clean() } catch(err){}
 }
 
 SCxml.prototype.invoke=function(inv)
@@ -51,8 +49,6 @@ SCxml.prototype.invoke=function(inv)
 		this.error("execution",inv,
 			new Error('unsupported invoke type "'+type+'"'))
 	
-	var src=inv.getAttribute("src")
-		||this.expr(inv.getAttribute("srcexpr"), inv)
 	var namelist=inv.getAttribute("namelist")
 	var data={}
 	if(namelist)
@@ -61,20 +57,33 @@ SCxml.prototype.invoke=function(inv)
 		for(var i=0, name; name=namelist[i]; i++)
 			data[name]=this.expr(name)
 	}
-	data=this.readParams(inv, data)
-	var c=this.dom.querySelector("[id='"+id+"'] > content")
-	if(c){
-		if(c.hasAttribute("expr"))
-			src=this.expr(c.getAttribute("expr"), c)
-		else if(!c.firstElementChild) src=c.textContent
-		else src=new XMLSerializer().serializeToString(c.firstElementChild)
+	
+	if('open' in SCxml.invokeTypes[type]){
+	// we're dealing with a connection-like invoke
+		var src=inv.getAttribute("target")
+			||this.expr(inv.getAttribute("targetexpr"), inv)
+		if(!src) this.error("execution",inv, new Error('target required'))
+		
+		data=this.readParams(inv, data, true)
+	}
+	else{
+		var src=inv.getAttribute("src")
+			||this.expr(inv.getAttribute("srcexpr"), inv)
+		var c=this.dom.querySelector("[id='"+id+"'] > content")
+		if(c){
+			if(c.hasAttribute("expr"))
+				src=this.expr(c.getAttribute("expr"), c)
+			else if(!c.firstElementChild) src=c.textContent
+			else src=new XMLSerializer().serializeToString(c.firstElementChild)
+		}
+		data=this.readParams(inv, data)
+		this.toInvoke.add(id) // we won't continue interpretation of the parent
+			// until the invoked session has become stable
 	}
 	
-	this.toInvoke.add(id) // we won't continue interpretation of the parent
-		// until the invoked session has become stable
-
 	// now create the invoked session
-	var invoked=SCxml.invokeTypes[type].instantiate(src, data, id, this)
+	var invoked=SCxml.invokeTypes[type][('open' in SCxml.invokeTypes[type])?
+		"open":"instantiate"](src, data, id, this)
 	invoked.af=inv.hasAttribute('autoforward')
 }
 
