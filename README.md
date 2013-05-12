@@ -10,9 +10,9 @@ It is distributed under a MIT license.
 
 ### Development status
 
-You can't `<send>` or receive remote events (of any type) with I/O Processors, but you can already use the included custom `<fetch>` element to get similar results in a client-server fashion.
+You can't `<send>` or receive remote events (of any type) with I/O Processors, but you can already use the included custom `<fetch>` and `<invoke type="event-stream">` elements to get similar results in a client-server fashion.
 
-As mentionned above, you can't send SCXML events over HTTP. Support is planned for listening for remote events (from predefined hosts) with the EventSource protocol built-in.
+As mentionned above, you can't `<send>` SCXML events over HTTP. But you can listen to remote events after invoking a connection with event-stream type.
 
 Current Features:
 
@@ -22,6 +22,7 @@ Current Features:
 - DOM interaction is fully supported
 - interpreter JavaScript API including events (documented in dom.html)
 - `<fetch>` custom executable element (see fetch.html for documentation)
+- connection-like invoke support (see connect.html for documentation)
 - pause/resume functionality (also pauses delayed events' and setTimeout timers)
 - works in WebKit-based browsers
 
