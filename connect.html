@@ -16,7 +16,7 @@ article{
 
 <h1>JSSCxml connection-like &lt;invoke&gt; extension</h1>
 
-<p>This document describes a proposed extension to the <code>&lt;invoke&gt;</code> element. It would enable SCXML running on Web clients to open a virtual connection to a remote system to send and/or receive events. There is no requirement that the connection be symetrical, and the underlying implementation doesn't have to be a single persistent connection.</p>
+<p>This document describes a proposed extension to the <code>&lt;invoke&gt;</code> element. It would enable SCXML running on Web clients to open a virtual connection to a remote system to send and/or receive events. There is no requirement that the connection be symmetrical, and the underlying implementation doesn't have to be a single persistent connection.</p>
 
 <p>The communication protocol and data encoding are defined by the <em>type</em> of invoke; in fact, the type determines whether it is a normal invocation or a connection. JSSC provides the <a href="event-stream.html">event-stream</a> type by default, and a two-way connection using WebSockets should be available later.</p>
 
@@ -28,7 +28,7 @@ article{
 <th>Name</th><th>Required</th><th>Type</th><th>Default value</th><th>Valid values</th><th>Description</th></tr>
 </thead><tbody>
 <tr><td>target</td><td rowspan="2">if using a connection type, but never both of those</td><td>URI</td><td>none</td><td>Any value accepted by the type implementation</td><td>The connection will be opened there.</td></tr>
-<tr><td>targetexpr</td><td>Vale expression</td><td>none</td><td></td><td>Evaluates when the <code>&lt;connect&gt;</code> element is executed, used as if there had been a <code>target</code> attribute with the resulting value.</td></tr>
+<tr><td>targetexpr</td><td>Vale expression</td><td>none</td><td></td><td>Evaluates when the <code>&lt;invoke&gt;</code> element is executed, used as if there had been a <code>target</code> attribute with the resulting value.</td></tr>
 </tbody></table>
 
 <p>Moreover, the <code>src</code> attribute is forbidden when using a connection type.</p>
