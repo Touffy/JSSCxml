@@ -256,7 +256,8 @@ SCxml.prototype={
 			this.invokedReady()
 			throw err
 		}
-		
+		this.html.dispatchEvent(new Event("validated"))
+
 		// interpret top-level <datamodel> if present
 		var d=dom.querySelector("scxml > datamodel")
 		if(d) try{this.execute(d)} catch(err){}

@@ -50,10 +50,10 @@ SCxml.prototype.pause=function()
 {
 	if(this.paused || !this.running) return;
 	this.paused=true
-	this.html.dispatchEvent(new Event("pause"))
-	for(var i=0, sends=sc.dom.querySelectorAll("send"), send; send=sends[i]; i++)
-		if(send.sent && send.sent.length)
+	for(var i=0, sends=this.dom.querySelectorAll("send"), send;
+		send=sends[i]; i++) if(send.sent && send.sent.length)
 			for(var j=0, timer; timer=send.sent[j]; j++) timer.stop()
+	this.html.dispatchEvent(new Event("pause"))
 }
 
 // resume a running SC
@@ -62,7 +62,392 @@ SCxml.prototype.resume=function()
 	if(!this.running || !this.paused) return;
 	this.nextPauseBefore=0
 	this.paused=false
-	this.html.dispatchEvent(new Event("resume"))
 	for(var timer; timer=this.timeouts.pop(); timer.start());
+	this.html.dispatchEvent(new Event("resume"))
 	this.mainEventLoop()
+}
+
+SCxml.debug=function(e)
+{
+	new SCxml.View(this.interpreter)
+}
+
+// parses <scxml> tags with the debug attribute
+SCxml.parseSCXMLTags=function()
+{
+	var tags=document.getElementsByTagName("scxml")
+	for(var i=0; i<tags.length; i++){
+		tags[i].interpreter=
+			new SCxml(tags[i].getAttribute("src"), tags[i], null,
+				!tags[i].hasAttribute("debug"))
+		if(tags[i].hasAttribute("debug")){
+			new SCxml.View(tags[i].interpreter)
+			tags[i].interpreter.autoPauseBefore=2
+		}
+	}
+}
+
+SCxml.View=function SCxmlView(sc, into)
+{
+	this.sc=sc
+	this.ui=SCxml.View.createUI()
+	if(!into && sc.html.parentNode==document.head)
+		into=document.body
+	if(into){
+		into=into.appendChild(document.createElement("scxml"))
+		into.setAttribute("debug", true)
+		into.interpreter=sc
+	}
+	else into=sc.html
+	into.appendChild(this.ui)
+	sc.view=this
+	sc.html.addEventListener("validated", SCxml.View.init, true)
+}
+
+SCxml.View.init=function(e){
+	this.removeEventListener("validated", SCxml.View.init, true)
+	
+	var sc=e.target.interpreter
+	sc.view.convertSCXML()
+	sc.view.ui.arrows.style.width=+sc.view.ui.sc.parentNode.offsetWidth+20+"px"
+	sc.view.allArrows()
+	
+	this.addEventListener("ready", SCxml.View.onready, true)
+	this.addEventListener("exit", SCxml.View.onexit, true)
+	this.addEventListener("enter", SCxml.View.onenter, true)
+	this.addEventListener("finished", SCxml.View.onfinished, true)
+	this.addEventListener("pause", SCxml.View.onpause, true)
+	this.addEventListener("resume", SCxml.View.onresume, true)
+	this.addEventListener("queue", SCxml.View.onqueue, true)
+	this.addEventListener("consume", SCxml.View.onconsume, true)
+}
+SCxml.View.onready=function(e){
+	if(e.target.interpreter.parent) return;
+	this.interpreter.view.ui.run.disabled=false
+	setTimeout(SCxml.View.redraw, 0, this.interpreter.view)
+}
+SCxml.View.redraw=function(v){
+	v.ui.arrows.style.left=+v.ui.sc.parentNode.offsetLeft+ +v.ui.offsetLeft+"px"
+	v.ui.arrows.style.width=+v.ui.sc.parentNode.offsetWidth+20+"px"
+	v.allArrows()
+}
+SCxml.View.onexit=function(e){
+	if(e.target.interpreter.parent) return;
+	e.detail.list.forEach(this.interpreter.view.exit,this.interpreter.view)
+}
+SCxml.View.onenter=function(e){
+	if(e.target.interpreter.parent) return;
+	setTimeout(SCxml.View.applyEnter, 0, e.detail.list, this.interpreter.view)
+}
+SCxml.View.applyEnter=function(l, view){
+	l.forEach(view.enter, view)
+}
+SCxml.View.onfinished=function(e){
+	if(e.target.interpreter.parent) return;
+	this.interpreter.view.ui.run.disabled=false
+	this.interpreter.view.ui.run.value="restart"
+	this.interpreter.view.ui.pause.disabled=true
+}
+SCxml.View.onpause=function(e){
+	if(e.target.interpreter.parent) return;
+	this.interpreter.view.ui.pause.disabled=false
+	this.interpreter.view.ui.pause.value="resume"
+	this.interpreter.view.ui.pause.onclick=SCxml.View.clickresume
+	if(this.interpreter.view.ui.speed.value<5000)
+		setTimeout(SCxml.View.autoresume,
+			+this.interpreter.view.ui.speed.value,
+			this.interpreter.view)
+}
+SCxml.View.onresume=function(e){
+	if(e.target.interpreter.parent) return;
+	this.interpreter.view.ui.pause.value="pause"
+	this.interpreter.view.ui.pause.disabled=false
+	this.interpreter.view.ui.pause.onclick=SCxml.View.clickpause
+}
+
+SCxml.View.clickrun=function(e)
+{
+	var ui=this.parentNode.parentNode
+	var sc=ui.parentNode.interpreter
+	sc.pauseNext()
+	sc.start()
+	ui.pause.disabled=false
+	this.disabled=true
+}
+SCxml.View.clickpause=function(e)
+{
+	this.parentNode.parentNode.parentNode.interpreter.pauseNext()
+	this.disabled=true
+}
+SCxml.View.autoresume=function(view)
+{
+	view.sc.resume()
+	view.ui.pause.disabled=true
+}
+SCxml.View.clickresume=function(e)
+{
+	this.parentNode.parentNode.parentNode.interpreter.resume()
+	this.disabled=true
+}
+SCxml.View.cleanAshes=function(e){
+	this.parentNode.removeChild(this)
+}
+SCxml.View.onqueue=function(e)
+{
+	if(e.target.interpreter.parent) return;
+	var h=document.createElement("li")
+	h.textContent=e.detail.name
+	if(/^error/.test(e.detail.name)) h.classList.add("error")
+	this.interpreter.view.ui[(e.detail.type=="external")?'extQ':'intQ']
+		.appendChild(h)
+}
+SCxml.View.onconsume=function(e)
+{
+	if(e.target.interpreter.parent) return;
+	var c=this.interpreter.view.ui[(e.detail=="external")?'extQ':'intQ']
+	for(c=c.firstElementChild;
+		c.classList.contains("burn");
+		c=c.nextElementSibling);
+	c.classList.add("burn")
+	c.addEventListener("webkitAnimationEnd", SCxml.View.cleanAshes, true)
+}
+
+SCxml.View.hoverArrow=function(e)
+{
+	if(!(e.target instanceof SVGPathElement)) return;
+	if(e.type=="mouseover") e.target.from.classList.add("on")
+	else e.target.from.classList.remove("on")
+}
+SCxml.View.hoverTrans=function(e)
+{
+	for(var a in this.arrows) if(this.arrows[a] instanceof SVGPathElement)
+		this.arrows[a].className.baseVal=(e.type=="mouseover"?"on":"")
+}
+
+SCxml.View.createUI=function()
+{
+	var UI=document.createElement("table")
+	UI.className="SCxmlDebug"
+	var h=UI.createCaption()
+	with(UI.run=h.appendChild(document.createElement("input"))){
+		type="button"
+		value="Run"
+		disabled=true
+		onclick=SCxml.View.clickrun
+	}
+	with(UI.pause=h.appendChild(document.createElement("input"))){
+		type="button"
+		value="Pause"
+		disabled=true
+		onclick=SCxml.View.clickpause
+	}
+	var l=h.appendChild(document.createElement("label"))
+	l.textContent="autoresume: "
+	with(UI.speed=l.appendChild(document.createElement("input"))){
+		type="range"
+		setAttribute("value","1000")
+		setAttribute("min","300")
+		setAttribute("max","5000")
+	}
+
+	var t=UI.createTBody().insertRow()
+	with(t.insertCell()){
+		var svgns="http://www.w3.org/2000/svg"
+		with(UI.arrows=appendChild(document.createElementNS(svgns, "svg"))){
+			setAttributeNS(null, "version", "1.1")
+			with(appendChild(document.createElementNS(svgns, "defs"))
+				.appendChild(document.createElementNS(svgns, "marker"))){
+				setAttributeNS(null, "id", "arrow")
+				setAttributeNS(null, "viewBox", "0 0 10 10")
+				setAttributeNS(null, "refX", "1")
+				setAttributeNS(null, "refY", "5")
+				setAttributeNS(null, "markerUnits", "strokeWidth")
+				setAttributeNS(null, "orient", "auto")
+				setAttributeNS(null, "markerWidth", "6")
+				setAttributeNS(null, "markerHeight", "4.5")
+				appendChild(document.createElementNS(svgns, "polyline"))
+					.setAttributeNS(null, "points", "0,0 10,5 0,10 1,5")
+			}
+			firstChild.appendChild(firstChild.firstChild.cloneNode(true))
+				.setAttributeNS(null, "id", "arrowOn")
+		}
+		;(UI.sc=appendChild(document.createElement("div"))).className="sc"
+	}
+
+	with(t.insertCell()){
+		className="queue"
+		appendChild(document.createElement("h2")).textContent="external queue"
+		UI.extQ=appendChild(document.createElement("ol"))
+	}
+	with(t.insertCell()){
+		className="queue"
+		appendChild(document.createElement("h2")).textContent="internal queue"
+		UI.intQ=appendChild(document.createElement("ol"))
+	}
+	
+	UI.arrows.addEventListener("mouseover", SCxml.View.hoverArrow, true)
+	UI.arrows.addEventListener("mouseout", SCxml.View.hoverArrow, true)
+	// add scoped style?
+
+	return UI
+},
+
+
+SCxml.View.prototype={
+
+constructor:SCxml.View,
+
+drawTransition:function(t)
+{
+	var targets=t.getAttribute("target")
+	if(targets) targets=targets.split(" ").map(this.getBySCId, this)
+	else return;
+	
+	this.clearArrows(t)
+	
+	var oxl=+t.offsetLeft
+	var oxr=+t.offsetLeft+t.offsetWidth
+	var oy=+t.offsetTop+t.offsetHeight-1
+	
+	for(var i=0; i<targets.length; i++) if(targets[i])
+	{
+		var dxl=targets[i].offsetLeft-3
+		var dxr=targets[i].offsetLeft+targets[i].offsetWidth+2
+		var dy=targets[i].offsetTop+13
+		var d,x
+		
+		if(dxl > oxr){
+			x=Math.sqrt(dxl-oxr)*3+3
+			d='M '+oxr+' '+oy+' C '+(oxr+x+4)+' '+oy
+			+' '+(dxl-x)+' '+dy+' '+dxl+' '+dy
+		}
+		else if(dxr < oxl){
+			x=Math.sqrt(oxl-dxr)*3+3
+			d='M '+oxl+' '+oy+' C '+(oxl-x-4)+' '+oy
+			+' '+(dxr+x)+' '+dy+' '+dxr+' '+dy
+		}
+		else{
+			x=Math.sqrt(Math.abs(oxr-dxr))*4+5
+			d='M '+oxr+' '+oy+' C '+(oxr+x+5)+' '+oy
+			+' '+(dxr+x)+' '+dy+' '+dxr+' '+dy
+		}
+		var path = document.createElementNS("http://www.w3.org/2000/svg","path")
+		path.setAttributeNS(null,"d",d)
+		path.from=t
+		t.arrows.push(this.ui.arrows.appendChild(path))
+	}
+	this.opacityArrows(t)
+},
+
+allArrows:function()
+{
+	var targets=this.ui.querySelectorAll("transition[target]")
+	for(var i=0; i<targets.length; i++)
+		this.drawTransition(targets[i])
+},
+
+clearArrows:function(t)
+{
+	if(t.arrows)
+		for(var i=0; i<t.arrows.length; i++){
+			this.ui.arrows.removeChild(t.arrows[i])
+			delete t.arrows[i].from
+		}
+	t.arrows=[]
+},
+opacityArrows:function(t)
+{
+	var op=t.parentNode.classList.contains("active")?1:0.5
+
+	if(t.arrows)
+		for(var i=0; i<t.arrows.length; i++)
+			t.arrows[i].style.opacity=op
+},
+
+convertNode:function(e)
+{
+	if(!(e.tagName in SCxml.STATE_ELEMENTS))
+		return null
+	var h=document.createElement("state")
+	h.className=e.tagName
+	var id=e.getAttribute("id")
+	h.appendChild(document.createElement("h4")).textContent=id
+	h.setAttribute("scid", id)
+	for(var cn, c=e.firstElementChild; c; c=c.nextElementSibling)
+		if(cn=this.convertNode(c)) h.appendChild(cn)
+	for(var cn, c=e.firstElementChild; c; c=c.nextElementSibling)
+		if(cn=this.convertInvoke(c)) h.appendChild(cn)
+	for(var cn, c=e.firstElementChild; c; c=c.nextElementSibling)
+		if(cn=this.convertTransition(c)) h.appendChild(cn)
+	return h
+},
+convertTransition:function(e)
+{
+	if(e.tagName!="transition")
+		return null
+	var h=document.createElement("transition")
+	var ev=e.getAttribute("event")
+	h.appendChild(document.createElement("h4")).textContent=ev||"event"
+	if(e.hasAttribute("event")) h.setAttribute("event", ev)
+	if(e.hasAttribute("cond"))
+	{
+		var cond=e.getAttribute("cond")
+		h.setAttribute("cond", cond)
+		h.appendChild(document.createElement("code")).textContent=cond
+	}
+	if(e.hasAttribute("target"))
+		h.setAttribute("target", e.getAttribute("target"))
+	
+	h.addEventListener("mouseover", SCxml.View.hoverTrans, true)
+	h.addEventListener("mouseout", SCxml.View.hoverTrans, true)
+
+	return h
+},
+convertInvoke:function(e)
+{
+	if(e.tagName!="invoke")
+		return null
+	var h=document.createElement("invoke")
+	var id=e.getAttribute("id")
+	h.appendChild(document.createElement("h4")).textContent=id
+	h.setAttribute("scid", id)
+	return h
+},
+convertSCXML:function(){
+	for(var cn, c=this.sc.dom.documentElement.firstElementChild; c;
+		c=c.nextElementSibling)
+		if(cn=this.convertNode(c)) this.ui.sc.appendChild(cn)
+},
+
+getBySCId:function(id)
+{
+	return this.ui.querySelector("[scid="+id+"]")
+},
+
+enter:function(id)
+{
+	var s=this.getBySCId(id)
+	s.classList.remove("exited")
+	s.classList.add("active")
+	for(var c=s.firstElementChild; c; c=c.nextElementSibling)
+		if(c.tagName=="transition" || c.tagName=="TRANSITION")
+			this.opacityArrows(c)
+},
+exit:function(id)
+{
+	var s=this.getBySCId(id)
+	s.classList.remove("active")
+	s.classList.add("exited")
+	for(var c=s.firstElementChild; c; c=c.nextElementSibling)
+		if(c.tagName=="transition" || c.tagName=="TRANSITION")
+			this.opacityArrows(c)
+},
+
+clearQueues:function()
+{
+	var c
+	while(c=this.ui.intQ.firstChild) this.ui.intQ.removeChild(c)
+	while(c=this.ui.extQ.firstChild) this.ui.extQ.removeChild(c)
+}
+
 }
