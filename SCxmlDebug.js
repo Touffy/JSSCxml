@@ -127,7 +127,6 @@ SCxml.View.onready=function(e){
 	setTimeout(SCxml.View.redraw, 0, this.interpreter.view)
 }
 SCxml.View.redraw=function(v){
-	v.ui.arrows.style.left=+v.ui.sc.parentNode.offsetLeft+ +v.ui.offsetLeft+"px"
 	v.ui.arrows.style.width=+v.ui.sc.parentNode.offsetWidth+20+"px"
 	v.allArrows()
 }
