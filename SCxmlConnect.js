@@ -22,7 +22,7 @@ SCxml.invokeTypes["event-stream"]=
 	},
 	
 	onmessage: function(message){
-		var name=message.data.match(/^\s*(\w+(?:\.\w+))/)
+		var name=message.data.match(/^\s*(\w+(?:\.\w+)?)/)
 		name=name?name[1]:"message."+this.iid
 		var data=message.data.replace(/^.*\n/, "")
 		if(data) try{ data=JSON.parse(data) }catch(err){}
