@@ -11,7 +11,6 @@ SCxml.EventProcessors={
 		{
 			if(sc.sendNoMore) return;
 			target=target||"#_scxml_"+sc.sid
-			console.log("sending a "+event.name+" event to "+target)
 			var sid
 			if((sid=target.match(/^#_scxml_(.+)$/)) && (sid=sid[1]))
 			{
@@ -70,8 +69,6 @@ SCxml.EventProcessors={
 			
 			if(!obj) sc.error("execution.DOM",element,
 				new Error('Failed to evaluate "'+target+'" to an existing element'))
-			
-			console.log("sending a "+event.type+" event to ",obj)
 			
 			obj.dispatchEvent(event)
 		}
