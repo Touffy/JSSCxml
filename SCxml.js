@@ -421,11 +421,15 @@ SCxml.prototype={
 			var c=ct.root.end.firstElementChild
 			while(c){ if(c.tagName in SCxml.STATE_ELEMENTS)
 				{
-					
 					if(tree && tree.root.path[0]==c)
 						ct.appendChild(tree)
 					else if(!state.CA)
 						this.walkToEnter(c,ct, lcca)
+					else{
+						for(var i=0, c2; c2=tree.children[i]; i++)
+							if(c2.root.path[0]==c) break
+						if(!c2) this.walkToEnter(c,ct, lcca)
+					}
 				}
 				c=c.nextElementSibling
 			}
@@ -455,7 +459,6 @@ SCxml.prototype={
 		if(this.lateBinding
 		&& (dm=this.dom.querySelector("[id="+id+"] > datamodel"))
 		&& ('unbound' in dm)){
-			console.log("binding late")
 			delete dm.unbound
 			try{this.execute(dm)} catch(err){}
 		}
@@ -706,7 +709,6 @@ SCxml.prototype={
 		
 		// if we reach here, no transition could be used
 		this.stable=true
-		console.log(this.name+": waiting for external events.")
 		this.html.dispatchEvent(new Event("waiting"))
 	},
 	
@@ -721,9 +723,6 @@ SCxml.prototype={
 				trans.splice(i--,1)
 				continue
 			}
-			console.log(this.name+": "+getId(t.parentNode)
-				+" → "+(t.targets?"["+t.targets.map(getId)+"]"
-				:"*targetless*"))
 			this.findLCCA(t)
 			if(!t.targets) continue
 			
