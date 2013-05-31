@@ -124,6 +124,8 @@ SCxml.View.init=function(e){
 SCxml.View.onready=function(e){
 	if(e.target.interpreter.parent) return;
 	this.interpreter.view.ui.run.disabled=false
+	this.interpreter.view.ui.run.value="run"
+	this.interpreter.view.ui.run.onclick=SCxml.View.clickrun
 	setTimeout(SCxml.View.redraw, 0, this.interpreter.view)
 }
 SCxml.View.redraw=function(v){
@@ -145,6 +147,7 @@ SCxml.View.onfinished=function(e){
 	if(e.target.interpreter.parent) return;
 	this.interpreter.view.ui.run.disabled=false
 	this.interpreter.view.ui.run.value="restart"
+	this.interpreter.view.ui.run.onclick=SCxml.View.clickrun2
 	this.interpreter.view.ui.pause.disabled=true
 }
 SCxml.View.onpause=function(e){
@@ -172,6 +175,14 @@ SCxml.View.clickrun=function(e)
 	sc.start()
 	ui.pause.disabled=false
 	this.disabled=true
+}
+SCxml.View.clickrun2=function(e)
+{
+	var sc=this.parentNode.parentNode.parentNode.interpreter
+	this.disabled=true
+	sc.view.clearQueues()
+	sc.view.clearActive()
+	sc.restart()
 }
 SCxml.View.clickpause=function(e)
 {
@@ -447,6 +458,12 @@ clearQueues:function()
 	var c
 	while(c=this.ui.intQ.firstChild) this.ui.intQ.removeChild(c)
 	while(c=this.ui.extQ.firstChild) this.ui.extQ.removeChild(c)
+},
+
+clearActive:function()
+{
+	for(var i=0, c, l=this.ui.querySelectorAll("*.active"); c=l[i]; i++)
+		c.classList.remove("active")
 }
 
 }

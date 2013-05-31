@@ -150,6 +150,48 @@ SCxml.prototype={
 		this.sendNoMore=true
 		this.invokedReady()
 	},
+	
+	restart: function()
+	{
+		if(this.readyState<SCxml.RUNNING) return;
+		if(this.readyState>SCxml.RUNNING) this.terminate()
+		if(!this._iframe_)
+			throw new Error("Cannot restart a cleaned-up session.")
+		
+		var s=this.dom.createNodeIterator(this.dom.documentElement,
+			NodeFilter.SHOW_ELEMENT, SCxml.stateFilter)
+		var v
+		while(v=s.nextNode()){
+			v.removeAttribute("active")
+			v.removeAttribute("willExit")
+		}
+		
+		this.internalQueue=[]
+		this.externalQueue=[]
+		
+		this.configuration={}
+		this.statesToEnter=null
+		this.invoked={}
+		this.toInvoke=new Set()
+		this.lastEvent=undefined
+		
+		this.sendNoMore=false
+		
+		this.delays={}
+		this.timeouts=[]
+		this.intervals=[]
+		document.body.removeChild(this._iframe_)
+		delete this._iframe_
+		delete this.datamodel
+		this.initIframe()
+		
+		this.running=false
+		this.stable=false
+		this.paused=false
+		this.readyState=SCxml.LOADING
+	
+		setTimeout(function(sc){ sc.interpret(false) }, 0, this)
+	},
 
 	toString: function(){ return "SCxml("+this.name+")" },
 	constructor: SCxml,
@@ -251,12 +293,15 @@ SCxml.prototype={
 	// get started with the parsed SCXML
 	interpret: function(dom)
 	{
-		this.dom=dom
-		try{this.validate()} catch(err){
-			this.invokedReady()
-			throw err
+		if(dom===false) dom=this.dom
+		else{
+			this.dom=dom
+			try{this.validate()} catch(err){
+				this.invokedReady()
+				throw err
+			}
+			this.html.dispatchEvent(new Event("validated"))
 		}
-		this.html.dispatchEvent(new Event("validated"))
 
 		// interpret top-level <datamodel> if present
 		var d=dom.querySelector("scxml > datamodel")
