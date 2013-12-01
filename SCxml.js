@@ -46,7 +46,7 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	this.invoked={}
 	this.toInvoke=new Set()
 	this.lastEvent=undefined
-	
+
 	this.sid=SCxml.sessions.length
 	SCxml.sessions.push(this)
 	this.html=(htmlContext && htmlContext instanceof Element) ? htmlContext
@@ -116,6 +116,7 @@ SCxml.prototype={
 		delete this.html
 		
 		delete this.datamodel
+		delete this.JSSCID
 
 		document.body.removeChild(this._iframe_)
 		delete this._iframe_
@@ -216,6 +217,26 @@ SCxml.prototype={
 		// when an XHR fails: no need to throw another on top
 	},
 	
+	// checks all targets for an element;
+	checkTargets: function(target, element)
+	{
+		element.targets=new Set()
+		for(var i=0, t, r, ts=target.split(/\s+/); t=ts[i]; i++){
+			if(r=this.dom.getElementById(t)){
+			// target exists; add to targets set and reverse target list
+				element.targets.add(r._JSSCID)
+				if(t in this.targets) this.targets[t].add(element._JSSCID)
+				else this.targets[t]=new Set(element._JSSCID)
+			}
+			else{
+			// target does not exists; add to reverse missing target list
+				if(t in this.missingTargets)
+					this.missingTargets[t].add(element._JSSCID)
+				else this.missingTargets[t]=new Set(element._JSSCID)
+			}
+		}
+	},
+
 	validate: function ()
 	{
 		if(!this.dom)
@@ -240,13 +261,41 @@ SCxml.prototype={
 			if(hasAttribute("name")) this.name=getAttribute("name")
 		}
 		
+		this.missingTargets={} // {missing target ID : [source JSSCIDs]}
+		this.targets={} // {existing state ID : [source JSSCIDs]}
+		this.JSSCID={} // {JSSCID : DOM element}
+		this.lastJSSCID=1
+		
 		with(this.dom)
 		{
+			// first give everything an internal JSSCID
+			var s=createNodeIterator(documentElement,
+				NodeFilter.SHOW_ELEMENT, SCxml.guiFilter)
+			while(v=s.nextNode())
+				this.JSSCID[v._JSSCID=this.lastJSSCID++]=v
+			s.detach()
+			
+			getElementById=function(id)
+			{
+				var r=querySelectorAll("state[id='"+id+"'], final[id='"+id+"'], history[id='"+id+"'], parallel[id='"+id+"']")
+				for(var i=0, s; s=r[i]; i++){
+					for(var c=s.parentElement; c && c.tagName!="content";
+						c=c.parentElement);
+					if(!c) return s
+				}
+				return null
+			}
+			
 			var states=querySelectorAll("state, final, parallel, history")
-			for(var i=0, state; state=states[i]; i++)
-			// generate an ID for states that don't have one
+			for(var i=0, state; state=states[i]; i++){
+				// generate an ID for states that don't have one
 				if(!state.hasAttribute('id'))
 					state.setAttribute('id', this.uniqId())
+
+				// check that initial target exists
+				if(!this.inInvoke(state) && state.hasAttribute('initial'))
+					this.checkTargets(state.getAttribute('initial'), state)
+			}
 			
 			var invs=querySelectorAll("invoke")
 			for(var i=0, inv; inv=invs[i]; i++)
@@ -254,8 +303,11 @@ SCxml.prototype={
 				if(!inv.hasAttribute('id')) inv.setAttribute('id',
 					this.invokeId(inv.parentNode.getAttribute('id')))
 			
-			getElementById=function(id)
-			{ return querySelector("state[id='"+id+"'], final[id='"+id+"'], history[id='"+id+"'], parallel[id='"+id+"']") }
+			var trans=querySelectorAll("transition")
+			for(var i=0, tr; tr=trans[i]; i++)
+			// check that targets exist
+				if(!this.inInvoke(tr) && tr.hasAttribute('target'))
+					this.checkTargets(tr.getAttribute('target'), tr)
 		}
 	},
 	
@@ -352,8 +404,7 @@ SCxml.prototype={
 			this.invokedReady()
 			throw this.name + " has no suitable initial state."
 		}
-		if(s instanceof Array) this.addStatesToEnter( s )
-		else this.addStatesToEnter( [s] )
+		this.addStatesToEnter( s )
 		
 		this.readyState=SCxml.RUNNING
 		this.html.dispatchEvent(new CustomEvent("enter", {detail:{list:
@@ -365,6 +416,16 @@ SCxml.prototype={
 		else this.mainEventLoop()
 	},
 	
+	resolve: function(a)
+	{
+		if(a instanceof Set){
+			var b=[]
+			for(var i in a.items) b.push(this.JSSCID[i])
+			return b
+		}
+		else return this.JSSCID[a]
+	},
+	
 	// find the initial state in the document or in a <state>;
 	// returns null or undefined if the state is atomic or parallel
 	firstState: function(parent)
@@ -372,15 +433,11 @@ SCxml.prototype={
 		if(parent.tagName!="state" && parent.tagName!="scxml")
 			return null
 		
-		var id, state
-		if(parent.hasAttribute("initial"))
-		{
-			state=parent.getAttribute("initial").split(/\s+/)
-				.map(this.getById, this)
-			if(state.length==1 || parent.tagName=="state") return state[0]
-		}
+		if(parent.targets) return this.resolve(parent.targets)
 
-		else if(state=this.dom.querySelector("[id="+getId(parent)+"] > initial"))
+		var id, state
+		if(parent.tagName=="state"
+		&& (state=this.dom.querySelector("[id="+getId(parent)+"] > initial")))
 		{
 			var trans=state.firstElementChild
 			while(trans && trans.tagName!="transition")
@@ -390,15 +447,15 @@ SCxml.prototype={
 				throw this.name+": <initial> requires a <transition>."
 			}
 			parent.executeAfterEntry=trans
-			state=this.dom.getElementById(id=trans.getAttribute("target"))
+			if(trans.hasAttribute("targetexpr")) this.checkTargets(
+				this.expr(trans.getAttribute("targetexpr"), trans), trans)
+			return this.resolve(trans.targets)
 		}
-		else
-		{
-			state=parent.firstElementChild
-			while(state && !(state.tagName in SCxml.STATE_ELEMENTS))
-				state=state.nextElementSibling
-		}
-		return state
+		
+		state=parent.firstElementChild
+		while(state && !(state.tagName in SCxml.STATE_ELEMENTS))
+			state=state.nextElementSibling
+		return state?[state]:null
 	},
 	
 	addStatesToEnter: function(states, lcca)
@@ -423,8 +480,7 @@ SCxml.prototype={
 				// transition content must be run after parent's onentry
 				// but before entering any children
 				state.parentNode.executeAfterEntry=trans
-				h=trans.getAttribute("target").split(/\s+/)
-					.map(this.getById,this)
+				h=this.resolve(trans.targets)
 			}
 			this.addStatesToEnter(h, lcca)
 		}
@@ -443,8 +499,8 @@ SCxml.prototype={
 		path.push(state)
 		var down=state, up=state
 		while(down = this.firstState(down)){
-			path.push(down)
-			down.CA=false
+			path.push(down[0])
+			down[0].CA=false
 		}
 		while((up = up.parentNode).tagName=="state" && up!=lcca){
 			path.unshift(up)
@@ -559,14 +615,14 @@ SCxml.prototype={
 	findLCCA: function(trans)
 	{
 		if(trans.lcca && !trans.hasAttribute("targetexpr")) return;
-		var source=trans.parentNode, targets=trans.targets
+		var source=trans.parentNode, targets=this.resolve(trans.targets)
 		trans.internal=false
 		if(targets==null) return trans.lcca=null // targetless
 		trans.lcca=source
 		var ids=targets.map(function (e){
 				if(e.tagName=="history") e=e.parentNode
 				var id=getId(e)
-				return "state[id="+id+"], final[id="+id+"], history[id="+id+"], parallel[id="+id+"]"})
+				return "state[id="+id+"], final[id="+id+"], parallel[id="+id+"]"})
 			.join(", ")
 		// determine transition type
 		// get Least Common Compound Ancestor
@@ -660,15 +716,8 @@ SCxml.prototype={
 				{ try{
 					var targets=String(sc.expr(t.getAttribute("targetexpr"),t))
 					if(!targets) t.targets=null
-					else t.targets=targets.split(/\s+/).map(sc.getById,sc)
+					else this.checkTargets(targets, t)
 					} catch(err){ t.targets=null }
-				}
-				// or just once then reuse it if it's plain old 'target'
-				else if(!t.targets){
-					if(t.hasAttribute("target"))
-						t.targets=t.getAttribute("target")
-						.split(/\s+/).map(sc.getById,sc)
-					else t.targets=null
 				}
 				return t
 			}
@@ -764,12 +813,12 @@ SCxml.prototype={
 		for(var i=0; t=trans[i]; i++)
 		{
 			// preemtion, part II
-			if(t.parentElement.getAttribute("willExit") && t.targets){
+			if(t.parentElement.getAttribute("willExit") && t.targets && t.targets.length){
 				trans.splice(i--,1)
 				continue
 			}
 			this.findLCCA(t)
-			if(!t.targets) continue
+			if(!t.targets || !t.targets.length) continue
 			
 			var s=this.dom.createNodeIterator(t.lcca,
 				NodeFilter.SHOW_ELEMENT, SCxml.activeStateFilter)
@@ -799,8 +848,8 @@ SCxml.prototype={
 		var currentConf=this.statesToEnter
 		this.statesToEnter=null
 		// then enter all the states to enter
-		for(i=0; t=trans[i]; i++) if(t.targets)
-			this.addStatesToEnter(t.targets, t.lcca)
+		for(i=0; t=trans[i]; i++) if(t.targets  && t.targets.length)
+			this.addStatesToEnter(this.resolve(t.targets), t.lcca)
 		if(this.statesToEnter)
 			this.html.dispatchEvent(new CustomEvent("enter", {detail:{list:
 				this.statesToEnter.inEntryOrder()
@@ -861,8 +910,30 @@ SCxml.RUNNING=2
 SCxml.FINISHED=3
 
 SCxml.STATE_ELEMENTS={state: 'state', parallel: 'parallel', 'final': 'final'}
+SCxml.IN_GUI={
+	scxml: {parents:[]},
+	state: {parents:['state', 'parallel', 'scxml'], idType:'state'},
+	parallel: {parents:['state', 'parallel', 'scxml'], idType:'state'},
+	'final': {parents:['state', 'parallel', 'scxml'], idType:'state'},
+	history: {parents:['state', 'parallel'], idType:'state'},
+	
+	initial: {parents:['state', 'parallel']},
+	transition: {parents:['state', 'parallel', 'initial', 'history']},
+
+	invoke: {parents:['state', 'parallel'], idType:'invoke'},
+	finalize: {parents:['invoke']},
+	
+	onentry: {parents:['state', 'parallel', 'final']},
+	onexit: {parents:['state', 'parallel', 'final']},
+	script: {parents:['scxml']},
+	
+	datamodel: {parents:['state', 'parallel', 'scxml', 'final']},
+	donedata: {parents:['final']}
+}
 
 SCxml.stateFilter={acceptNode: function(node){ return 2-(node.tagName in SCxml.STATE_ELEMENTS) }}
+
+SCxml.guiFilter={acceptNode: function(node){ return 2-(node.tagName in SCxml.IN_GUI) }}
 
 SCxml.tagNameFilter=function (tagName)
 {
