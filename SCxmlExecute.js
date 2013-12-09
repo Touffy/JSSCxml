@@ -30,7 +30,7 @@ SCxml.prototype.readParams=function(element, data, alsoContent)
 	{
 		if(c.tagName=="param"){
 			var name=c.getAttribute("name")
-			var value=c.getAttribute("expr") || c.getAttribute("loc")
+			var value=c.getAttribute("expr") || c.getAttribute("location")
 			if(data.hasOwnProperty(name))
 			{
 				if(data[name] instanceof Array)
