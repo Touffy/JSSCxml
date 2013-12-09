@@ -285,6 +285,10 @@ SCxml.prototype={
 				}
 				return null
 			}
+
+			if(documentElement.hasAttribute('initial'))
+				this.checkTargets(documentElement.getAttribute('initial'),
+					documentElement)
 			
 			var states=querySelectorAll("state, final, parallel, history")
 			for(var i=0, state; state=states[i]; i++){
@@ -498,9 +502,9 @@ SCxml.prototype={
 		// and add/propagate the CA (Common Ancestor) property
 		path.push(state)
 		var down=state, up=state
-		while(down = this.firstState(down)){
-			path.push(down[0])
-			down[0].CA=false
+		while((down = this.firstState(down)) && (down = down[0])){
+			path.push(down)
+			down.CA=false
 		}
 		while((up = up.parentNode).tagName=="state" && up!=lcca){
 			path.unshift(up)
