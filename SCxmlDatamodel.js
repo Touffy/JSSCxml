@@ -18,6 +18,12 @@ SCxml.prototype.initIframe=function (data)
 			+ '	try{ with(_jsscxml_predefined_){ return eval(s) } }\n'
 			+ '	catch(e){ _sc.error("execution",el,e) }\n'
 			+ '}\n'
+
+			+ 'function syntexpr(s,el)\n{\n'
+			+ '	try{ with(_jsscxml_predefined_){ return eval(s) } }\n'
+			+ '	catch(e){ if(e instanceof SyntaxError) return e\n'
+			+ '  else _sc.error("execution",el,e) }\n'
+			+ '}\n'
 			
 			+ 'function call(f, args)\n{\n'
 			+ '	try{ with(_jsscxml_predefined_){ return f.call(null, args) } }\n'

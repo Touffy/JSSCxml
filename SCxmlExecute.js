@@ -184,11 +184,29 @@ SCxml.executableContent={
 			console.warn("Variable '"+id+"' is shadowing a predefined"
 			+ "window variable: please never delete it.\nin", element)
 		else sc.datamodel[id]=undefined
-		if(element.hasAttribute("expr"))
+		if(element.hasAttribute("expr")){
 			sc.expr(id+" = "+value, element)
-		else if(value=element.getAttribute("src"))
-		{
-			// TODO: fetch the data
+			return
+		}
+		if(element.hasAttribute("src"))
+			console.warn("You should use <fetch> instead of <data src>, which may render the interpreter unresponsive.")
+		else if(value=element.firstElementChild){ // XML content
+			if(value==element.lastElementChild)
+				value=new sc.datamodel.DOMParser().parse(
+					new XMLSerializer().serializeToString(value))
+			else{
+				value=sc.dom.createDocumentFragment()
+				for(var c=element.firstChild; c; c=c.nextSibling)
+					value.appendChild(c.cloneNode(true))
+			}
+			sc.assign(id, value)
+		}
+		else if(value=element.textContent){	// JS or normalized text content
+			var tmp=sc.datamodel.syntexpr(value) // see if it is valid JS
+			if(tmp instanceof sc.datamodel.SyntaxError)
+				value=value.replace(/^\s*|\s*$/g, "").replace(/\s+/g," ")
+			else value=tmp
+			sc.assign(id, value)
 		}
 	},
 	
