@@ -6,7 +6,7 @@ are not ideally suited for that role.
 // the basic constructor:
 SCxml.Event=function SCxmlEvent(name, type)
 {
-	this.name=name
+	this.name=String(name)
 	this.timestamp=new Date().getTime()
 	this.type=type||"platform"
 }
