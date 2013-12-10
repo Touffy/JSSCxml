@@ -39,14 +39,35 @@ SCxml.prototype.readParams=function(element, data, alsoContent)
 			}
 			else data[name] = this.expr(value, c)
 		}
-		else if(alsoContent && c.tagName=="content"){
-			if(c.hasAttribute("expr"))
-				data=this.expr(c.getAttribute("expr"), c)
-			else data=c.textContent
-			break
-		}
+		else if(alsoContent && c.tagName=="content")
+			return data=this.readContent(c)
 	}
 	return data
+}
+
+SCxml.prototype.readContent=function(c)
+{
+	if(c.hasAttribute("expr"))
+		return this.expr(c.getAttribute("expr"), c)
+	var value
+	if(value=c.firstElementChild){ // XML content
+		if(value==element.lastElementChild){
+			var tmp=sc.dom.implementation.createDocument(
+				value.namespaceURI, value.localName)
+			for(var c=value.firstChild; c; c=c.nextSibling)
+				tmp.documentElement.appendChild(tmp.importNode(c, true))
+		}else{
+			value=sc.dom.createDocumentFragment()
+			for(var c=element.firstChild; c; c=c.nextSibling)
+				value.appendChild(c.cloneNode(true))
+		}
+		return value
+	}
+	if(value=c.textContent){	// JSON or normalized text content
+		try{ return JSON.parse(value) }
+		catch(err){ return value.replace(/^\s*|\s*$/g, "").replace(/\s+/g," ")}
+	}
+	return null
 }
 
 SCxml.parseTime=function (s)
