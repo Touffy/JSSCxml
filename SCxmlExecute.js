@@ -51,7 +51,7 @@ SCxml.prototype.readContent=function(c)
 		return this.expr(c.getAttribute("expr"), c)
 	var value
 	if(value=c.firstElementChild){ // XML content
-		if(value==element.lastElementChild){
+		if(value==c.lastElementChild){
 			var tmp=sc.dom.implementation.createDocument(
 				value.namespaceURI, value.localName)
 			for(var c=value.firstChild; c; c=c.nextSibling)
