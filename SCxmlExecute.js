@@ -191,10 +191,12 @@ SCxml.executableContent={
 		if(element.hasAttribute("src"))
 			console.warn("You should use <fetch> instead of <data src>, which may render the interpreter unresponsive.")
 		else if(value=element.firstElementChild){ // XML content
-			if(value==element.lastElementChild)
-				value=new sc.datamodel.DOMParser().parse(
-					new XMLSerializer().serializeToString(value))
-			else{
+			if(value==element.lastElementChild){
+				var tmp=sc.dom.implementation.createDocument(
+					value.namespaceURI, value.localName)
+				for(var c=value.firstChild; c; c=c.nextSibling)
+					tmp.documentElement.appendChild(tmp.importNode(c, true))
+			}else{
 				value=sc.dom.createDocumentFragment()
 				for(var c=element.firstChild; c; c=c.nextSibling)
 					value.appendChild(c.cloneNode(true))
@@ -204,9 +206,8 @@ SCxml.executableContent={
 		else if(value=element.textContent){	// JS or normalized text content
 			var tmp=sc.datamodel.syntexpr(value) // see if it is valid JS
 			if(tmp instanceof sc.datamodel.SyntaxError)
-				value=value.replace(/^\s*|\s*$/g, "").replace(/\s+/g," ")
-			else value=tmp
-			sc.assign(id, value)
+				tmp=value.replace(/^\s*|\s*$/g, "").replace(/\s+/g," ")
+			sc.assign(id, tmp)
 		}
 	},
 	
