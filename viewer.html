@@ -17,78 +17,42 @@
 	<script src="SCxmlFetch.js"></script>
 	<script src="SCxmlConnect.js"></script>
 	
-	<link rel="stylesheet" href="viewer.css">
+	<link rel="stylesheet" href="SCxmlView.css">
 </head>
 <body>
 
 <section id="editor"><header>
-	<h2>Editor</h2>
-	<input name="parse" type="button" value="Parse"> or <input name="load" type="button" value="Load source"> from <input name="src" placeholder="http://" type="url" value="w3c_tests/test405.scxml">
+	<h2>SCXML Debugger</h2>
+	<input name="load" type="button" value="Load source"> from <input name="src" placeholder="http://" type="url" value="w3c_tests/test405.scxml">
 </header>
-
-<textarea cols="80"><scxml xmlns="http://www.w3.org/2005/07/scxml">
-</scxml></textarea>
-</section>
-
-
-
-<section id="viewer"><header><h2>Viewer</h2>
-	<input name="run" type="button" value="Run" disabled>
-	<input name="pause" type="button" value="Pause" disabled>
-	<label>autoresume: <input name="speed" type="range" min="500" max="5000" value="1000"></label> (max = no autoresume)
-</header>
-
-<table><tbody><tr>
-<td class="queue"><h3>internal queue</h3>
-	<ol id="internal"></ol>
-	<form name="queueInt">
-	<input type="text" name="ename" placeholder="event.name">
-	<input type="submit" value="send" disabled>
-	</form>
-</td>
-<td class="queue"><h3>external queue</h3>
-	<ol id="external"></ol>
-	<form name="queueExt">
-	<input type="text" name="ename" placeholder="event.name">
-	<input type="text" name="data" placeholder="{&quot;data&quot;:value}">
-	<input type="submit" value="send" disabled>
-	</form>
-</td>
-<td><svg xmlns="http://www.w3.org/2000/svg" version="1.1">
-	<defs><marker id="arrow" viewBox="0 0 10 10" refX="1" refY="5" 
-	  markerUnits="strokeWidth" orient="auto"
-	  markerWidth="6" markerHeight="4.5">
-	  <polyline points="0,0 10,5 0,10 1,5" />
-	</marker></defs>
-</svg>
-
-<div class="scxml"></div></td>
-</tr></tbody></table>
 
 </section>
 
 <script>
 
 UI={
+	code:document.getElementsByTagName("textarea")[0],
 	parse:document.querySelector("input[name=parse]"),
 	load:document.querySelector("input[name=load]"),
 	src:document.querySelector("input[name=src]"),
-	run:document.querySelector("input[name=run]"),
-	pause:document.querySelector("input[name=pause]"),
-	speed:document.querySelector("input[name=speed]"),
 	
-	view:document.getElementById("viewer"),
-	intQ:document.getElementById("internal"),
-	extQ:document.getElementById("external"),
-	
-	arrows:document.getElementsByTagName("svg")[0]
+	view:document.getElementById("editor")
 }
 
 sc=null
 
+UI.load.onclick=function(e)
+{
+	if(sc){ sc.html.removeChild(sc.view.ui); sc.clean() }
+	var tag=UI.view.appendChild(document.createElement("scxml"))
+	tag.setAttribute("debug", true)
+	sc=new SCxml(UI.src.value, tag, null)
+	new SCxml.View(sc)
+	sc.autoPauseBefore=SCxml.ALL_EVENTS
+}
+
+
 </script>
-<script src="viewer-functions.js"></script>
-<script src="viewer-listeners.js"></script>
 
 </body>
 </html>
