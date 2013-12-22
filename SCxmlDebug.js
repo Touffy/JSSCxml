@@ -101,6 +101,7 @@ SCxml.View=function SCxmlView(sc, into)
 	else into=sc.html
 	into.appendChild(this.ui)
 	sc.view=this
+	this.ui.sc.view=this
 	sc.html.addEventListener("validated", SCxml.View.init, true)
 }
 
@@ -233,6 +234,19 @@ SCxml.View.hoverTrans=function(e)
 	for(var a in this.arrows) if(this.arrows[a] instanceof SVGPathElement)
 		this.arrows[a].className.baseVal=(e.type=="mouseover"?"on":"")
 }
+SCxml.View.toggle=function(e){
+	if(e.target.localName=="h4" && e.button==0){
+		e.preventDefault()
+		return
+	}
+	if(e.target.localName!="summary") return;
+	setTimeout(SCxml.View.redraw, 0, this.view)
+}
+SCxml.View.blockEnter=function(e){
+	if(e.target.contentEditable!=="true") return;
+	if((e.keyCode==32 && e.target.parentNode.localName=="summary")
+		|| e.keyCode==13) e.preventDefault()
+}
 
 SCxml.View.createUI=function()
 {
@@ -297,6 +311,8 @@ SCxml.View.createUI=function()
 	
 	UI.arrows.addEventListener("mouseover", SCxml.View.hoverArrow, true)
 	UI.arrows.addEventListener("mouseout", SCxml.View.hoverArrow, true)
+	UI.sc.addEventListener("click", SCxml.View.toggle, true)
+	UI.sc.addEventListener("keydown", SCxml.View.blockEnter, true)
 	// add scoped style?
 
 	return UI
@@ -307,23 +323,26 @@ SCxml.View.prototype={
 
 constructor:SCxml.View,
 
+// draw the arrows to the transition's target states
 drawTransition:function(t)
 {
-	var targets=t.getAttribute("target")
-	if(targets) targets=targets.split(" ").map(this.getBySCId, this)
-	else return;
+	var scT=this.sc.JSSCID[t._JSSCID]
+	var targets=this.sc.resolve(scT.targets||(scT.checkTargets(),scT.targets))
 	
 	this.clearArrows(t)
-	
-	var oxl=+t.offsetLeft
-	var oxr=+t.offsetLeft+t.offsetWidth
-	var oy=+t.offsetTop+t.offsetHeight-1
+	for(var o=t; !o.offsetHeight; o=o.parentNode);
+	var oxl=+o.offsetLeft
+	var oxr=+o.offsetLeft+o.offsetWidth-1
+	var oy=+o.offsetTop+o.offsetHeight-2
 	
 	for(var i=0; i<targets.length; i++) if(targets[i])
 	{
-		var dxl=targets[i].offsetLeft-3
-		var dxr=targets[i].offsetLeft+targets[i].offsetWidth+2
-		var dy=targets[i].offsetTop+13
+		var target=targets[i].ui
+		if(!t.offsetHeight && !target.offsetHeight) continue
+		for(; !target.offsetHeight; target=target.parentNode);
+		var dxl=target.offsetLeft-3
+		var dxr=target.offsetLeft+target.offsetWidth+2
+		var dy=target.offsetTop+13
 		var d,x
 		
 		if(dxl > oxr){
@@ -351,7 +370,7 @@ drawTransition:function(t)
 
 allArrows:function()
 {
-	var targets=this.ui.querySelectorAll("transition[target]")
+	var targets=this.ui.querySelectorAll(".transition")
 	for(var i=0; i<targets.length; i++)
 		this.drawTransition(targets[i])
 },
@@ -378,10 +397,15 @@ convertNode:function(e)
 {
 	if(!(e.tagName in SCxml.STATE_ELEMENTS))
 		return null
-	var h=document.createElement("state")
+	var h=document.createElement("details")
+	h._JSSCID=e._JSSCID
+	e.ui=h
 	h.className=e.tagName
+	h.open=true
 	var id=e.getAttribute("id")
-	h.appendChild(document.createElement("h4")).textContent=id
+	h.appendChild(document.createElement("summary"))
+		.appendChild(document.createElement("h4")).textContent=id
+	h.firstChild.firstChild.contentEditable=true
 	h.setAttribute("scid", id)
 	for(var cn, c=e.firstElementChild; c; c=c.nextElementSibling)
 		if(cn=this.convertNode(c)) h.appendChild(cn)
@@ -395,18 +419,33 @@ convertTransition:function(e)
 {
 	if(e.tagName!="transition")
 		return null
-	var h=document.createElement("transition")
-	var ev=e.getAttribute("event")
-	h.appendChild(document.createElement("h4")).textContent=ev||"event"
+	var h=document.createElement("details")
+	h._JSSCID=e._JSSCID
+	e.ui=h
+	h.className="transition"
+	var ev=e.getAttribute("event")||"(eventless)"
 	if(e.hasAttribute("event")) h.setAttribute("event", ev)
-	if(e.hasAttribute("cond"))
-	{
-		var cond=e.getAttribute("cond")
-		h.setAttribute("cond", cond)
-		h.appendChild(document.createElement("code")).textContent=cond
+	with(h.appendChild(document.createElement("summary"))){
+		appendChild(document.createElement("h4")).textContent=ev
+		firstChild.contentEditable=true
+		title="show/hide condition and target fields"
 	}
-	if(e.hasAttribute("target"))
-		h.setAttribute("target", e.getAttribute("target"))
+	var cond=e.getAttribute("cond")||""
+	with(h.appendChild(document.createElement("code"))){
+		textContent=cond
+		contentEditable=true
+	}
+	with(h.appendChild(document.createElement("span"))){
+		if(e.hasAttribute("target"))
+			textContent=e.getAttribute("target")||"(targetless)"
+		else textContent=e.getAttribute("targetexpr")||""
+		contentEditable=true
+	}
+	with(h.appendChild(document.createElement("label"))){
+		appendChild(document.createElement("input")).type="checkbox"
+		firstChild.checked=e.hasAttribute("targetexpr")
+		appendChild(document.createTextNode("expr"))
+	}
 	
 	h.addEventListener("mouseover", SCxml.View.hoverTrans, true)
 	h.addEventListener("mouseout", SCxml.View.hoverTrans, true)
@@ -418,6 +457,8 @@ convertInvoke:function(e)
 	if(e.tagName!="invoke")
 		return null
 	var h=document.createElement("invoke")
+	h._JSSCID=e._JSSCID
+	e.ui=h
 	var id=e.getAttribute("id")
 	h.appendChild(document.createElement("h4")).textContent=id
 	h.setAttribute("scid", id)
@@ -440,7 +481,7 @@ enter:function(id)
 	s.classList.remove("exited")
 	s.classList.add("active")
 	for(var c=s.firstElementChild; c; c=c.nextElementSibling)
-		if(c.tagName=="transition" || c.tagName=="TRANSITION")
+		if(c.className=="transition")
 			this.opacityArrows(c)
 },
 exit:function(id)
@@ -449,7 +490,7 @@ exit:function(id)
 	s.classList.remove("active")
 	s.classList.add("exited")
 	for(var c=s.firstElementChild; c; c=c.nextElementSibling)
-		if(c.tagName=="transition" || c.tagName=="TRANSITION")
+		if(c.className=="transition")
 			this.opacityArrows(c)
 },
 

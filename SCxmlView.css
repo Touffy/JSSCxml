@@ -72,7 +72,7 @@
 }
 
 /* SCXML element rendering */
-state{
+.final, .history, .parallel, .state{
 	background-color: white;
 	float: left;
 	border: 1px solid grey;
@@ -88,49 +88,49 @@ invoke{
 	color: #ce45d0;
 	display: block;
 }
-transition{
+summary h4{
+	display: inline;
+	font-size: 10pt;
+	margin: 0;
+}
+
+.transition{
 	clear: left;
 	opacity: 0.5;
 	display: block;
 	border-bottom: 2px solid #0f3a98;
 }
-transition:hover, transition.on{
+.transition:hover, .transition.on{
 	border-color: #179fff;
 	background: -webkit-linear-gradient(rgba(255,255,255,0) 30%, #179fff 100%);
 }
-transition h4{
-	display: inline;
+.transition > summary h4{
 	font-weight: normal;
-	line-height: 2px;
 }
-transition[event] h4{
-	line-height: 10pt;
+.transition span{
+	font-size: 10pt;
 }
-transition code{
-	margin-left: 1em;
-	font-size: 8pt;
-}
-transition code:before{
+.transition code:before{
 	content: "if ";
 	color: #7d0000;
 }
-state.final{ border-color: red; }
-state.parallel{
+.transition span:before{
+	content: "to ";
+	color: #00497e;
+}
+details.final{ border-color: red; }
+details.parallel{
 	border: 3px double grey;
 	padding: 2pt;
 }
-state h4{
-	font-size: 10pt;
-	margin: 0;
-}
-state.active{
+details.active{
 	background-color: rgba(200,255,0,0.32);
 	-webkit-animation: enter 0.3s linear 0 3 alternate;
 }
-state.active > transition{
+details.active > .transition{
 	opacity: 1;
 }
-state.exited{
+details.exited{
 	-webkit-animation: exit 0.3s linear 0 3 alternate;
 }
 
@@ -147,7 +147,7 @@ state.exited{
 	display: block; 
 }
 
-/* transition arrows */
+/* .transition arrows */
 svg{
 	position: absolute;
 	pointer-events: none;
