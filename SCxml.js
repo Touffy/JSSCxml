@@ -42,6 +42,7 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	this.externalQueue=[]
 	
 	this.configuration={}
+	this.transitionsToTake=null
 	this.statesToEnter=null
 	this.invoked={}
 	this.toInvoke=new Set()
@@ -774,7 +775,7 @@ SCxml.prototype={
 					if(trans.length) break
 				}
 			}
-			if(trans.length) this.takeTransitions(trans)
+			if(trans.length) this.preTransitions(trans)
 			else break
 		}
 	},
@@ -802,7 +803,7 @@ SCxml.prototype={
 			
 			trans=this.selectTransitions(event)
 			if(trans.length)
-				return this.takeTransitions(trans)
+				return this.preTransitions(trans)
 		}
 		
 		// if we reach here, no transition could be used
@@ -810,19 +811,18 @@ SCxml.prototype={
 		this.html.dispatchEvent(new Event("waiting"))
 	},
 	
-	// try to follow transitions, after exiting the source states
-	takeTransitions: function(trans)
+	// mark states to be exited and preempt transitions
+	preTransitions: function(trans)
 	{
-		// first mark all the states that must be exited
-		for(var i=0; t=trans[i]; i++)
+		for(var i=0, t; t=trans[i]; i++)
 		{
 			// preemtion, part II
-			if(t.parentElement.getAttribute("willExit") && t.targets && t.targets.length){
+			if(t.parentElement.getAttribute("willExit") && t.targets.length){
 				trans.splice(i--,1)
 				continue
 			}
 			this.findLCCA(t)
-			if(!t.targets || !t.targets.length) continue
+			if(!t.targets.length) continue
 			
 			var s=this.dom.createNodeIterator(t.lcca,
 				NodeFilter.SHOW_ELEMENT, SCxml.activeStateFilter)
@@ -831,9 +831,17 @@ SCxml.prototype={
 			while(v=s.nextNode()) v.setAttribute("willExit",true)
 			s.detach()
 		}
-		// now exit in reverse document order
+		this.transitionsToTake=trans
+		this.html.dispatchEvent(new Event("step"))
+		this.takeTransitions()
+	},
+	
+	// try to follow transitions, after exiting the source states
+	takeTransitions: function()
+	{
+		// exit in reverse document order
 		var toExit=this.dom.querySelectorAll("[willExit]")
-		var rev=[]
+		var rev=[], t, i
 		if(toExit.length)
 		{
 			for(i=toExit.length-1; i>=0; i--) rev.push(toExit[i])
@@ -843,7 +851,7 @@ SCxml.prototype={
 		}
 		
 		// now, between exit and entry, run the executable content if present
-		for(i=0; t=trans[i]; i++)
+		for(i=0; t=this.transitionsToTake[i]; i++)
 		{
 			try{ this.execute(t) }
 			catch(err){}
@@ -852,7 +860,7 @@ SCxml.prototype={
 		var currentConf=this.statesToEnter
 		this.statesToEnter=null
 		// then enter all the states to enter
-		for(i=0; t=trans[i]; i++) if(t.targets  && t.targets.length)
+		for(i=0; t=this.transitionsToTake[i]; i++) if(t.targets.length)
 			this.addStatesToEnter(this.resolve(t.targets), t.lcca)
 		if(this.statesToEnter)
 			this.html.dispatchEvent(new CustomEvent("enter", {detail:{list:

@@ -104,6 +104,10 @@ summary h4{
 	border-color: #179fff;
 	background: -webkit-linear-gradient(rgba(255,255,255,0) 30%, #179fff 100%);
 }
+.transition.enabled:hover, .transition.on.enabled{
+	border-color: lime;
+	background: -webkit-linear-gradient(rgba(255,255,255,0) 30%, lime 100%);
+}
 .transition > summary h4{
 	font-weight: normal;
 }
@@ -133,6 +137,9 @@ details.active > .transition{
 details.exited{
 	-webkit-animation: exit 0.3s linear 0 3 alternate;
 }
+details.enabled{
+	border-color: green;
+}
 
 /* events */
 .SCxmlDebug ol{
@@ -154,6 +161,7 @@ svg{
 }
 #arrow{ fill: #0f3a98; }
 #arrowOn{ fill: #179fff; }
+#arrowOnEnabled{ fill: lime; }
 scxml path{
 	pointer-events: visibleStroke;
 	fill: none;
@@ -164,4 +172,11 @@ scxml path{
 scxml path:hover, scxml path.on{
 	marker-end: url(#arrowOn);
 	stroke: #179fff;
+}
+scxml path.enabled{
+	stroke: green;
+}
+scxml path.enabled:hover, scxml path.on.enabled{
+	marker-end: url(#arrowOnEnabled);
+	stroke: lime;
 }

@@ -40,7 +40,7 @@ SCxml.prototype.macrostep=function()
 				if(trans.length) break
 			}
 		}
-		if(trans.length) this.takeTransitions(trans)
+		if(trans.length) this.preTransitions(trans)
 		else break
 	}
 }
@@ -114,6 +114,7 @@ SCxml.View.init=function(e){
 	sc.view.allArrows()
 	
 	this.addEventListener("ready", SCxml.View.onready, true)
+	this.addEventListener("step", SCxml.View.onstep, true)
 	this.addEventListener("exit", SCxml.View.onexit, true)
 	this.addEventListener("enter", SCxml.View.onenter, true)
 	this.addEventListener("finished", SCxml.View.onfinished, true)
@@ -136,6 +137,11 @@ SCxml.View.redraw=function(v){
 SCxml.View.onexit=function(e){
 	if(e.target.interpreter.parent) return;
 	e.detail.list.forEach(this.interpreter.view.exit,this.interpreter.view)
+}
+SCxml.View.onstep=function(e){
+	if(e.target.interpreter.parent) return;
+	this.interpreter.transitionsToTake.forEach(
+		this.interpreter.view.enable, this.interpreter.view)
 }
 SCxml.View.onenter=function(e){
 	if(e.target.interpreter.parent) return;
@@ -233,6 +239,7 @@ SCxml.View.hoverTrans=function(e)
 {
 	for(var a in this.arrows) if(this.arrows[a] instanceof SVGPathElement)
 		this.arrows[a].className.baseVal=(e.type=="mouseover"?"on":"")
+			+(this.classList.contains("enabled")?" enabled":"")
 }
 SCxml.View.toggle=function(e){
 	if(e.target.localName=="h4" && e.button==0){
@@ -294,6 +301,8 @@ SCxml.View.createUI=function()
 			}
 			firstChild.appendChild(firstChild.firstChild.cloneNode(true))
 				.setAttributeNS(null, "id", "arrowOn")
+			firstChild.appendChild(firstChild.firstChild.cloneNode(true))
+				.setAttributeNS(null, "id", "arrowOnEnabled")
 		}
 		;(UI.sc=appendChild(document.createElement("div"))).className="sc"
 	}
@@ -391,6 +400,13 @@ opacityArrows:function(t)
 	if(t.arrows)
 		for(var i=0; i<t.arrows.length; i++)
 			t.arrows[i].style.opacity=op
+},
+enable:function(t)
+{
+	t.ui.classList.add("enabled")
+	if(t.ui.arrows)
+		for(var i=0; i<t.ui.arrows.length; i++)
+			t.ui.arrows[i].className="enabled"
 },
 
 convertNode:function(e)
