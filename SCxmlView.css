@@ -87,8 +87,9 @@
 invoke{
 	color: #ce45d0;
 	display: block;
+	margin: 0;
 }
-summary h4{
+.sc h4{
 	display: inline;
 	font-size: 10pt;
 	margin: 0;
@@ -103,6 +104,10 @@ summary h4{
 .transition:hover, .transition.on{
 	border-color: #179fff;
 	background: -webkit-linear-gradient(rgba(255,255,255,0) 30%, #179fff 100%);
+}
+.transition.enabled{
+	border-color: green;
+	background: -webkit-linear-gradient(rgba(255,255,255,0) 30%, green 100%);
 }
 .transition.enabled:hover, .transition.on.enabled{
 	border-color: lime;
