@@ -103,6 +103,13 @@ SCxml.View=function SCxmlView(sc, into)
 	sc.view=this
 	this.ui.sc.view=this
 	sc.html.addEventListener("validated", SCxml.View.init, true)
+	this.obs={
+		transitionEvent:new MutationObserver(SCxml.View.obs.transitionEvent),
+		transitionCond:new MutationObserver(SCxml.View.obs.transitionCond),
+		transitionTarget:new MutationObserver(SCxml.View.obs.transitionTarget)
+	}
+	for(var i in this.obs)
+		this.obs[i].sc=sc
 }
 
 SCxml.View.init=function(e){
@@ -114,7 +121,7 @@ SCxml.View.init=function(e){
 	sc.view.allArrows()
 	
 	this.addEventListener("ready", SCxml.View.onready, true)
-	this.addEventListener("step", SCxml.View.onstep, true)
+//	this.addEventListener("step", SCxml.View.onstep, true)
 	this.addEventListener("exit", SCxml.View.onexit, true)
 	this.addEventListener("enter", SCxml.View.onenter, true)
 	this.addEventListener("finished", SCxml.View.onfinished, true)
@@ -251,8 +258,10 @@ SCxml.View.toggle=function(e){
 }
 SCxml.View.blockEnter=function(e){
 	if(e.target.contentEditable!=="true") return;
+	if(e.keyCode==13) e.target.blur()
 	if((e.keyCode==32 && e.target.parentNode.localName=="summary")
 		|| e.keyCode==13) e.preventDefault()
+	else setTimeout(SCxml.View.redraw, 0, this.view)
 }
 
 SCxml.View.createUI=function()
@@ -301,9 +310,11 @@ SCxml.View.createUI=function()
 			}
 			firstChild.appendChild(firstChild.firstChild.cloneNode(true))
 				.setAttributeNS(null, "id", "arrowOn")
+/*			firstChild.appendChild(firstChild.firstChild.cloneNode(true))
+				.setAttributeNS(null, "id", "arrowEnabled")
 			firstChild.appendChild(firstChild.firstChild.cloneNode(true))
 				.setAttributeNS(null, "id", "arrowOnEnabled")
-		}
+*/		}
 		;(UI.sc=appendChild(document.createElement("div"))).className="sc"
 	}
 
@@ -325,8 +336,27 @@ SCxml.View.createUI=function()
 	// add scoped style?
 
 	return UI
-},
+}
 
+SCxml.View.textObsConfig={characterData:true}
+
+SCxml.View.obs={
+	transitionEvent:function (mutations, obs)
+	{
+		obs.sc.JSSCID[mutations[0].target.parentNode.parentNode.parentNode._JSSCID]
+			.setAttribute("event", mutations[0].target.textContent)
+	},
+	transitionCond:function (mutations, obs)
+	{
+		obs.sc.JSSCID[mutations[0].target.parentNode.parentNode.parentNode._JSSCID]
+			.setAttribute("cond", mutations[0].target.textContent)
+	},
+	transitionTarget:function (mutations, obs)
+	{
+		obs.sc.JSSCID[mutations[0].target.parentNode.parentNode.parentNode._JSSCID]
+			.setAttribute("target", mutations[0].target.textContent)
+	},
+}
 
 SCxml.View.prototype={
 
@@ -336,7 +366,9 @@ constructor:SCxml.View,
 drawTransition:function(t)
 {
 	var scT=this.sc.JSSCID[t._JSSCID]
-	var targets=this.sc.resolve(scT.targets||(scT.checkTargets(),scT.targets))
+	if(!scT.targets || !scT.targets.length) return
+	
+	var targets=this.sc.resolve(scT.targets)
 	
 	this.clearArrows(t)
 	for(var o=t; !o.offsetHeight; o=o.parentNode);
@@ -445,18 +477,21 @@ convertTransition:function(e)
 		appendChild(document.createElement("h4")).textContent=ev
 		firstChild.contentEditable=true
 		title="show/hide condition and target fields"
+		this.obs.transitionEvent.observe(firstChild.firstChild, SCxml.View.textObsConfig)
 	}
-	var cond=e.getAttribute("cond")||""
+	var cond=e.getAttribute("cond")||"(always)"
 	with(h.appendChild(document.createElement("code"))){
 		textContent=cond
 		contentEditable=true
 	}
+	this.obs.transitionCond.observe(h.lastChild.firstChild, SCxml.View.textObsConfig)
 	with(h.appendChild(document.createElement("span"))){
 		if(e.hasAttribute("target"))
 			textContent=e.getAttribute("target")||"(targetless)"
-		else textContent=e.getAttribute("targetexpr")||""
+		else textContent=e.getAttribute("targetexpr")||"'(targetless)'"
 		contentEditable=true
 	}
+	this.obs.transitionTarget.observe(h.lastChild.firstChild, SCxml.View.textObsConfig)
 	with(h.appendChild(document.createElement("label"))){
 		appendChild(document.createElement("input")).type="checkbox"
 		firstChild.checked=e.hasAttribute("targetexpr")
@@ -497,7 +532,7 @@ enter:function(id)
 	s.classList.remove("exited")
 	s.classList.add("active")
 	for(var c=s.firstElementChild; c; c=c.nextElementSibling)
-		if(c.className=="transition")
+		if(c.classList.contains("transition"))
 			this.opacityArrows(c)
 },
 exit:function(id)
@@ -506,7 +541,7 @@ exit:function(id)
 	s.classList.remove("active")
 	s.classList.add("exited")
 	for(var c=s.firstElementChild; c; c=c.nextElementSibling)
-		if(c.className=="transition")
+		if(c.classList.contains("transition"))
 			this.opacityArrows(c)
 },
 

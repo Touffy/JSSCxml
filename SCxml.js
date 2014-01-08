@@ -311,8 +311,11 @@ SCxml.prototype={
 			var trans=querySelectorAll("transition")
 			for(var i=0, tr; tr=trans[i]; i++)
 			// check that targets exist
-				if(!this.inInvoke(tr) && tr.hasAttribute('target'))
-					this.checkTargets(tr.getAttribute('target'), tr)
+				if(!this.inInvoke(tr)){
+					if(tr.hasAttribute('target'))
+						this.checkTargets(tr.getAttribute('target'), tr)
+					else tr.targets=""
+				}
 		}
 	},
 	
