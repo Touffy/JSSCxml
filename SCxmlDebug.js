@@ -479,9 +479,8 @@ convertNode:function(e)
 	var id=e.getAttribute("id")
 	h.appendChild(document.createElement("summary"))
 		.appendChild(document.createElement("h4")).contentEditable=true
-	this.obs.stateId.observe(
-		h.lastChild.firstChild.appendChild(document.createTextNode(id)),
-		SCxml.View.textObsConfig)
+	h.lastChild.firstChild.textContent=id
+	this.obs.stateId.observe(h.lastChild.firstChild, SCxml.View.textObsConfig)
 	h.setAttribute("scid", id)
 	for(var cn, c=e.firstElementChild; c; c=c.nextElementSibling)
 		if(cn=this.convertNode(c)) h.appendChild(cn)
@@ -514,20 +513,17 @@ convertTransition:function(e)
 	}
 	h.appendChild(document.createElement("code")).contentEditable=true
 	if(!cond) h.lastChild.classList.add("empty")
-	this.obs.transitionCond.observe(
-		h.lastChild.appendChild(document.createTextNode(cond)),
-		SCxml.View.textObsConfig)
+	h.lastChild.textContent=cond
+	this.obs.transitionCond.observe(h.lastChild, SCxml.View.textObsConfig)
 	h.appendChild(document.createElement("span")).contentEditable=true
 	if(!t) h.lastChild.classList.add("empty")
-	this.obs.transitionTarget.observe(
-		h.lastChild.appendChild(document.createTextNode(t)),
-		SCxml.View.textObsConfig)
+	h.lastChild.textContent=t
+	this.obs.transitionTarget.observe(h.lastChild, SCxml.View.textObsConfig)
 	h.appendChild(document.createElement("code")).contentEditable=true
 	if(!texpr) h.lastChild.classList.add("empty")
 	h.lastChild.style.display="none"
-	this.obs.transitionTargetexpr.observe(
-		h.lastChild.appendChild(document.createTextNode(texpr)),
-		SCxml.View.textObsConfig)
+	h.lastChild.textContent=texpr
+	this.obs.transitionTargetexpr.observe(h.lastChild, SCxml.View.textObsConfig)
 	with(h.appendChild(document.createElement("label"))){
 		appendChild(document.createElement("input")).type="checkbox"
 		firstChild.checked=e.hasAttribute("targetexpr")
