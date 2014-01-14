@@ -103,13 +103,11 @@ SCxml.View=function SCxmlView(sc, into)
 	sc.view=this
 	this.ui.sc.view=this
 	sc.html.addEventListener("validated", SCxml.View.init, true)
-	this.obs={
-		transitionEvent:new MutationObserver(SCxml.View.obs.transitionEvent),
-		transitionCond:new MutationObserver(SCxml.View.obs.transitionCond),
-		transitionTarget:new MutationObserver(SCxml.View.obs.transitionTarget)
-	}
-	for(var i in this.obs)
+	this.obs={}
+	for(var i in SCxml.View.obs){
+		this.obs[i]=new MutationObserver(SCxml.View.obs[i]),
 		this.obs[i].sc=sc
+	}
 }
 
 SCxml.View.init=function(e){
@@ -206,12 +204,10 @@ SCxml.View.clickpause=function(e)
 SCxml.View.autoresume=function(view)
 {
 	view.sc.resume()
-	view.ui.pause.disabled=true
 }
 SCxml.View.clickresume=function(e)
 {
 	this.parentNode.parentNode.parentNode.interpreter.resume()
-	this.disabled=true
 }
 SCxml.View.cleanAshes=function(e){
 	this.parentNode.removeChild(this)
@@ -338,24 +334,45 @@ SCxml.View.createUI=function()
 	return UI
 }
 
-SCxml.View.textObsConfig={characterData:true}
+SCxml.View.textObsConfig={characterData:true, subtree: true, childList: true}
 
+SCxml.View.valid={
+	event:/^(?:\w+|\*)(?:\.(?:\w+|\*))*(?:\s+(?:\w+|\*)(?:\.(?:\w+|\*))*)*$/,
+	id:/^\w+(?:\.\w+)*$/,
+	target:/^\w+(?:\.\w+)*(?: \w+(?:\.\w+)*)*$/
+}
+
+SCxml.View.makeObs=function(prop, re, required){
+	return function(mutations, obs)
+	{
+		var t=mutations[0].target
+		if(mutations[0].type=="characterData") t=t.parentNode
+		var str=t.textContent,
+			owner=t.parentNode.parentNode,
+			cl=t.classList
+
+		if(!str){
+			cl.add("empty")
+			if(required) return cl.add("invalid")
+			obs.sc.JSSCID[owner._JSSCID].removeAttribute(prop)
+		}
+		else{
+			cl.remove("empty")
+			if(re && !re.test(str))
+				cl.add("invalid")
+			else{
+				cl.remove("invalid")
+				obs.sc.JSSCID[owner._JSSCID].setAttribute(prop, str)
+			}
+		}
+	}
+}
 SCxml.View.obs={
-	transitionEvent:function (mutations, obs)
-	{
-		obs.sc.JSSCID[mutations[0].target.parentNode.parentNode.parentNode._JSSCID]
-			.setAttribute("event", mutations[0].target.textContent)
-	},
-	transitionCond:function (mutations, obs)
-	{
-		obs.sc.JSSCID[mutations[0].target.parentNode.parentNode.parentNode._JSSCID]
-			.setAttribute("cond", mutations[0].target.textContent)
-	},
-	transitionTarget:function (mutations, obs)
-	{
-		obs.sc.JSSCID[mutations[0].target.parentNode.parentNode.parentNode._JSSCID]
-			.setAttribute("target", mutations[0].target.textContent)
-	},
+	stateId:SCxml.View.makeObs("id",SCxml.View.valid.id,true),
+	transitionEvent:SCxml.View.makeObs("event",SCxml.View.valid.event),
+	transitionCond:SCxml.View.makeObs("cond"),
+	transitionTarget:SCxml.View.makeObs("target",SCxml.View.valid.target),
+	transitionTargetexpr:SCxml.View.makeObs("targetexpr")
 }
 
 SCxml.View.prototype={
@@ -452,8 +469,10 @@ convertNode:function(e)
 	h.open=true
 	var id=e.getAttribute("id")
 	h.appendChild(document.createElement("summary"))
-		.appendChild(document.createElement("h4")).textContent=id
-	h.firstChild.firstChild.contentEditable=true
+		.appendChild(document.createElement("h4")).contentEditable=true
+	this.obs.stateId.observe(
+		h.lastChild.firstChild.appendChild(document.createTextNode(id)),
+		SCxml.View.textObsConfig)
 	h.setAttribute("scid", id)
 	for(var cn, c=e.firstElementChild; c; c=c.nextElementSibling)
 		if(cn=this.convertNode(c)) h.appendChild(cn)
@@ -471,27 +490,35 @@ convertTransition:function(e)
 	h._JSSCID=e._JSSCID
 	e.ui=h
 	h.className="transition"
-	var ev=e.getAttribute("event")||"(eventless)"
+	var ev=e.getAttribute("event")||"",
+		cond=e.getAttribute("cond")||"",
+		t=e.getAttribute("target")||"",
+		texpr=e.getAttribute("targetexpr")||""
+	
 	if(e.hasAttribute("event")) h.setAttribute("event", ev)
 	with(h.appendChild(document.createElement("summary"))){
-		appendChild(document.createElement("h4")).textContent=ev
-		firstChild.contentEditable=true
+		appendChild(document.createElement("h4")).contentEditable=true
+		if(!ev) firstChild.classList.add("empty")
 		title="show/hide condition and target fields"
-		this.obs.transitionEvent.observe(firstChild.firstChild, SCxml.View.textObsConfig)
+		firstChild.textContent=ev
+		this.obs.transitionEvent.observe(firstChild, SCxml.View.textObsConfig)
 	}
-	var cond=e.getAttribute("cond")||"(always)"
-	with(h.appendChild(document.createElement("code"))){
-		textContent=cond
-		contentEditable=true
-	}
-	this.obs.transitionCond.observe(h.lastChild.firstChild, SCxml.View.textObsConfig)
-	with(h.appendChild(document.createElement("span"))){
-		if(e.hasAttribute("target"))
-			textContent=e.getAttribute("target")||"(targetless)"
-		else textContent=e.getAttribute("targetexpr")||"'(targetless)'"
-		contentEditable=true
-	}
-	this.obs.transitionTarget.observe(h.lastChild.firstChild, SCxml.View.textObsConfig)
+	h.appendChild(document.createElement("code")).contentEditable=true
+	if(!cond) h.lastChild.classList.add("empty")
+	this.obs.transitionCond.observe(
+		h.lastChild.appendChild(document.createTextNode(cond)),
+		SCxml.View.textObsConfig)
+	h.appendChild(document.createElement("span")).contentEditable=true
+	if(!t) h.lastChild.classList.add("empty")
+	this.obs.transitionTarget.observe(
+		h.lastChild.appendChild(document.createTextNode(t)),
+		SCxml.View.textObsConfig)
+	h.appendChild(document.createElement("code")).contentEditable=true
+	if(!texpr) h.lastChild.classList.add("empty")
+	h.lastChild.style.display="none"
+	this.obs.transitionTargetexpr.observe(
+		h.lastChild.appendChild(document.createTextNode(texpr)),
+		SCxml.View.textObsConfig)
 	with(h.appendChild(document.createElement("label"))){
 		appendChild(document.createElement("input")).type="checkbox"
 		firstChild.checked=e.hasAttribute("targetexpr")

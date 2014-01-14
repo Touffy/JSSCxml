@@ -113,8 +113,15 @@ invoke{
 	border-color: lime;
 	background: -webkit-linear-gradient(rgba(255,255,255,0) 30%, lime 100%);
 }
+.transition code + * {
+	margin-left: 4pt;
+}
 .transition > summary h4{
 	font-weight: normal;
+}
+.transition > summary h4:before{
+	content: "on ";
+	color:#708c61;
 }
 .transition span{
 	font-size: 10pt;
@@ -123,9 +130,21 @@ invoke{
 	content: "if ";
 	color: #7d0000;
 }
-.transition span:before{
+.transition span:before, .transition span+code:before{
 	content: "to ";
 	color: #00497e;
+}
+.sc .empty{
+	font-style: italic;
+}
+.transition > summary h4.empty:before{
+	content: "eventless";
+}
+.transition code.empty:before{
+	content: "always";
+}
+.transition span.empty:before, .transition span+code.empty:before{
+	content: "targetless";
 }
 details.final{ border-color: red; }
 details.parallel{
