@@ -259,6 +259,15 @@ SCxml.View.blockEnter=function(e){
 		|| e.keyCode==13) e.preventDefault()
 	else setTimeout(SCxml.View.redraw, 0, this.view)
 }
+SCxml.View.createChild=function(e){
+	if(!e.target.classList.contains("state")
+	&& !e.target.classList.contains("parallel")) return;
+	var p=this.view.sc.JSSCID[e.target._JSSCID]
+	var s=this.view.sc.dom.createElement("state")
+	s.setAttribute("id", p.getAttribute("id")+"."+p.childNodes.length)
+	p.appendChild(s)
+	e.preventDefault()
+}
 
 SCxml.View.createUI=function()
 {
@@ -329,6 +338,7 @@ SCxml.View.createUI=function()
 	UI.arrows.addEventListener("mouseout", SCxml.View.hoverArrow, true)
 	UI.sc.addEventListener("click", SCxml.View.toggle, true)
 	UI.sc.addEventListener("keydown", SCxml.View.blockEnter, true)
+	UI.sc.addEventListener("dblclick", SCxml.View.createChild, true)
 	// add scoped style?
 
 	return UI
@@ -457,7 +467,6 @@ enable:function(t)
 		for(var i=0; i<t.ui.arrows.length; i++)
 			t.ui.arrows[i].className="enabled"
 },
-
 convertNode:function(e)
 {
 	if(!(e.tagName in SCxml.STATE_ELEMENTS))
