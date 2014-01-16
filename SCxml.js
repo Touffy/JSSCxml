@@ -63,6 +63,8 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	this.stable=false
 	this.paused=false
 	this.readyState=SCxml.LOADING
+	
+	if(SCxml.mutations) this.initObservers()
 
 	this.name="session "+this.sid
 
@@ -236,6 +238,7 @@ SCxml.prototype={
 				else this.missingTargets[t]=new Set(element._JSSCID)
 			}
 		}
+		if(!element.targets.length) element.targets=""
 	},
 
 	validate: function ()
@@ -298,8 +301,14 @@ SCxml.prototype={
 					state.setAttribute('id', this.uniqId())
 
 				// check that initial target exists
-				if(!this.inInvoke(state) && state.hasAttribute('initial'))
-					this.checkTargets(state.getAttribute('initial'), state)
+				if(!this.inInvoke(state)){
+					if(state.hasAttribute('initial'))
+						this.checkTargets(state.getAttribute('initial'), state)
+				
+					if(this.obs && state.localName in this.obs)
+						this.obs[state.localName]
+						.observe(state, SCxml.observerOptions[state.localName])
+				}
 			}
 			
 			var invs=querySelectorAll("invoke")
@@ -315,6 +324,9 @@ SCxml.prototype={
 					if(tr.hasAttribute('target'))
 						this.checkTargets(tr.getAttribute('target'), tr)
 					else tr.targets=""
+					
+					if(this.obs) this.obs.transition
+						.observe(tr, SCxml.observerOptions.transition)
 				}
 		}
 	},

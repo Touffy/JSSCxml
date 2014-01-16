@@ -358,8 +358,9 @@ SCxml.View.makeObs=function(prop, re, required){
 		var t=mutations[0].target
 		if(mutations[0].type=="characterData") t=t.parentNode
 		var str=t.textContent,
-			owner=t.parentNode.parentNode,
+			owner=t.parentNode,
 			cl=t.classList
+		while(owner.localName!="details") owner=owner.parentNode
 
 		if(!str){
 			cl.add("empty")
@@ -392,12 +393,12 @@ constructor:SCxml.View,
 // draw the arrows to the transition's target states
 drawTransition:function(t)
 {
+	this.clearArrows(t)
 	var scT=this.sc.JSSCID[t._JSSCID]
 	if(!scT.targets || !scT.targets.length) return
 	
 	var targets=this.sc.resolve(scT.targets)
 	
-	this.clearArrows(t)
 	for(var o=t; !o.offsetHeight; o=o.parentNode);
 	var oxl=+o.offsetLeft
 	var oxr=+o.offsetLeft+o.offsetWidth-1
