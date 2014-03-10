@@ -1,0 +1,83 @@
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>JSSCxml Web Speech API integration</title>
+	<style>
+h1{ font-weight: normal; }
+article h1{
+	background-color: #d7fbc1;
+}
+article{
+	margin-bottom: 2em;
+}
+	</style>
+</head>
+<body>
+
+<h1>Web Speech API integration</h1>
+
+<p>This page describes platform-specific JSSCxml extensions related to speech interaction in supported Web browsers. These extensions are not intended to be always interoperable with other SCXML implementations. JSSCxml currently supports only speech synthesis out of the box.</p>
+
+
+<section><h1>the <code>&lt;speak&gt;</code> element</h1>
+
+<p>The <code>&lt;speak&gt;</code> element can be used wherever executable content is allowed. It connects SCXML to the Web Speech Synthesis API newly implemented in several Web browsers, and exposes most of its functionnality.</p>
+
+<section><h1>Datamodel fields</h1>
+
+<p>In the datamodel, <code>_x.voices</code> is the list of voices supported by the platform, as returned by the <code><a href="https://dvcs.w3.org/hg/speech-api/raw-file/tip/speechapi.html#tts-methods">SpeechSynthesis.getVoices()</a></code> method. Items of that list are not <code><a href="https://dvcs.w3.org/hg/speech-api/raw-file/tip/speechapi.html#dfn-utterancevoiceuri">voiceURI</a></code>s, but the full <code><a href="https://dvcs.w3.org/hg/speech-api/raw-file/tip/speechapi.html#speechsynthesisvoice">SpeechSynthesisVoice</a></code> objects with a <code>voiceURI</code> property.</p>
+
+</section>
+
+<section><h1>Namespace</h1>
+
+<p>The namespace for <code>&lt;speak&gt;</code> must be "http://www.jsscxml.org", for which I suggest the shorthand "jssc". Thus:
+<pre>&lt;scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:jssc="http://www.jsscxml.org"&gt;
+…
+&lt;jssc:speak text="Hello world!" xml:lang="en-US"… /&gt;
+…</pre>
+
+<p>The reason JSSCxml is not using the SSML namespace is that there are some new attributes on the element, and that using inline SSML content would be good-looking but completely inflexible. Instead, SSML documents can be created (or parsed from actual SSML content in a <code>&lt;data&gt;</code> element) and manipulated by ECMAScript code and finally passed to the <code>&lt;speak&gt;</code> element.</p>
+
+</section>
+
+<section><h1>Attribute detail</h1>
+
+<table><thead><tr>
+<th>Name</th><th>Required</th><th>Default value</th><th>Valid values</th><th>Description</th></tr>
+</thead><tbody>
+<tr><td>text</td><td rowspan="2">yes, and no more than one of those two</td><td>none</td><td>text with optional SSML tags</td><td>The text or SSML that will be spoken</td></tr>
+<tr><td>expr</td><td>none</td><td>an expression evaluating to a string or a SSML Document</td><td>Evaluates when the <code>&lt;speak&gt;</code> element is executed, used as if there had been a <code>text</code> attribute with the resulting (linearized) value.</td></tr>
+
+<tr><td>xml:lang</td><td rowspan="2">no, and only one of those two</td><td>plaform-specific</td><td>any <a href="http://www.ietf.org/rfc/rfc3066.txt">RFC 3066</a> language code supported by the platform</td><td>the language of the text to be read</td></tr>
+<tr><td>langexpr</td><td>none</td><td></td><td>Evaluates when the <code>&lt;speak&gt;</code> element is executed, used as if there had been an <code>xml:lang</code> attribute with the resulting value.</td></tr>
+
+<tr><td>voice</td><td>no</td><td>plaform-specific</td><td>expression that must evaluate to a member of _x.voices</td><td>the voice used to read the text</td></tr>
+
+<tr><td>volume</td><td>no</td><td>1</td><td>0 – 1</td><td>how loud the text will be spoken</td></tr>
+
+<tr><td>rate</td><td>no</td><td>1</td><td>0.1 – 10</td><td>how fast the text will be spoken</td></tr>
+
+<tr><td>pitch</td><td>no</td><td>1</td><td>0 – 2</td><td>pitch modifier for the synthesized voice</td></tr>
+
+</tbody></table>
+
+</section>
+<section><h1>Children</h1>
+
+<p>None.</p>
+
+</section>
+
+<section><h1>Behavior</h1>
+<p>When executed, the <code>&lt;speak&gt;</code> element causes its text or SSML content to be read by the platform's SpeechSynthesis implementation, using the supplied parameters. When the synthesizer has reached the end of the utterrance, a <code>speak.end</code> event will be placed in the externa queue, with its <code>data</code> field containing a reference to the underlying SpeechSynthesisUtterance object.</p>
+
+<p>At this time, Chrome and Safari's implementations disagree on the way to select a voice. Chrome's utterance objects have a <code>voiceURI</code> property which can be set to the <code>voiceURI</code> value of a voice, whereas Safari's utterance objects have a <code>voice</code> property which accepts only references to whole <code>SpeechSynthesisVoice</code> objects. In order to hide this misbehavior from authors, the <code>voice</code> attribute defined here always takes a reference, and JSSCxml will ensure that each browser gets what it expects.</p>
+
+<p>If no voice is specified, the <code>xml:lang</code> attribute will cause the platform to choose the default voice for that language, if any is available, or at least for another geographical variation of that language. The language defined by <code>xml:lang</code> higher in the document hierarchy (typically on the root element) is inherited by <code>&lt;speak&gt;</code> elements, so there is no need to repeat it all the time.</p>
+</section>
+
+</section>
+
+</body>
+</html>
