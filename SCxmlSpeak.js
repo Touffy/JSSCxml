@@ -1,3 +1,4 @@
+if("speechSynthesis" in window){
 if(!("http://www.jsscxml.org" in SCxml.executableContentNS))
 	SCxml.executableContentNS["http://www.jsscxml.org"]={_support_:{}}
 
@@ -44,4 +45,6 @@ exc.speak=function(sc, element)
 
 SCxml.executableContentNS.tolerate.speak=exc.speak
 
+}} else {
+	console.warn("This browser does not implement SpeechSynthesis.")
 }

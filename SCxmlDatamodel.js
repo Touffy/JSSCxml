@@ -53,7 +53,7 @@ SCxml.prototype.initIframe=function (data)
 	this.datamodel.__defineSetter__("_ioprocessors", function(){
 		return SCxml.EventProcessors })
 	this.datamodel._x={
-		voices: speechSynthesis.getVoices()
+		voices: speechSynthesis && speechSynthesis.getVoices()
 	}
 	
 	if(data) for(i in data) if(data.hasOwnProperty(i))
