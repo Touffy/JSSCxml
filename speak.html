@@ -46,7 +46,7 @@ article{
 <table><thead><tr>
 <th>Name</th><th>Required</th><th>Default value</th><th>Valid values</th><th>Description</th></tr>
 </thead><tbody>
-<tr><td>text</td><td rowspan="2">yes, and no more than one of those two</td><td>none</td><td>text with optional SSML tags</td><td>The text or SSML that will be spoken</td></tr>
+<tr><td>text</td><td rowspan="2">yes*, and no more than one of those two</td><td>none</td><td>text with optional SSML tags</td><td>The text or SSML that will be spoken</td></tr>
 <tr><td>expr</td><td>none</td><td>an expression evaluating to a string or a SSML Document</td><td>Evaluates when the <code>&lt;speak&gt;</code> element is executed, used as if there had been a <code>text</code> attribute with the resulting (linearized) value.</td></tr>
 
 <tr><td>xml:lang</td><td rowspan="2">no, and only one of those two</td><td>plaform-specific</td><td>any <a href="http://www.ietf.org/rfc/rfc3066.txt">RFC 3066</a> language code supported by the platform</td><td>the language of the text to be read</td></tr>
@@ -60,7 +60,12 @@ article{
 
 <tr><td>pitch</td><td>no</td><td>1</td><td>0 – 2</td><td>pitch modifier for the synthesized voice</td></tr>
 
+<tr><td>interrupt / nomore</td><td>no*</td><td>false</td><td>boolean</td><td>stops speaking and cancel queued utterances</td></tr>
 </tbody></table>
+
+<p>* The boolean <code>nomore</code> (or <code>interrupt</code>) may appear alone in the <code>&lt;speak&gt;</code> tag.</p>
+
+<p>Note that the DOMParser API used by JSSCxml to parse all this may reject SCXML documents where boolean attributes are written without a value. It is therefore advised to give them the value <code>"true"</code> (although the interpreter will be happy with any value at all, as long as it gets well-formed XML).</p>
 
 </section>
 <section><h1>Children</h1>
@@ -72,9 +77,19 @@ article{
 <section><h1>Behavior</h1>
 <p>When executed, the <code>&lt;speak&gt;</code> element causes its text or SSML content to be read by the platform's SpeechSynthesis implementation, using the supplied parameters. When the synthesizer has reached the end of the utterrance, a <code>speak.end</code> event will be placed in the externa queue, with its <code>data</code> field containing a reference to the underlying SpeechSynthesisUtterance object.</p>
 
+<p>If the <code>nomore</code> or <code>interrupt</code> attribute is present, current and queued utterances will be cancelled first, so the new utterance (if supplied) will be spoken immediately, no matter what. The interpreter will place a <code>speak.error</code> event in the external queue for each cancelled utterance.</p>
+
 <p>At this time, Chrome and Safari's implementations disagree on the way to select a voice. Chrome's utterance objects have a <code>voiceURI</code> property which can be set to the <code>voiceURI</code> value of a voice, whereas Safari's utterance objects have a <code>voice</code> property which accepts only references to whole <code>SpeechSynthesisVoice</code> objects. In order to hide this misbehavior from authors, the <code>voice</code> attribute defined here always takes a reference, and JSSCxml will ensure that each browser gets what it expects.</p>
 
 <p>If no voice is specified, the <code>xml:lang</code> attribute will cause the platform to choose the default voice for that language, if any is available, or at least for another geographical variation of that language. The language defined by <code>xml:lang</code> higher in the document hierarchy (typically on the root element) is inherited by <code>&lt;speak&gt;</code> elements, so there is no need to repeat it all the time.</p>
+</section>
+
+<section><h1><code>speak</code> events</h1>
+
+<p><code>speak.*</code> events queued when using speech synthesis have the DOM Event <code>origintype</code>, but their <code>origin</code> is the corresponding <a href="https://dvcs.w3.org/hg/speech-api/raw-file/9a0075d25326/speechapi.html#utterance-attributes"><code>SpeechSynthesisUtterance</code></a> object rather than a node. There is no reason to <code>&lt;send&gt;</code> any event back to those objects (and the interpreter won't take them as a valid target anyway), but their <code>text</code> property allows you to track which utterance it is that has started, ended, or been cancelled.</p>
+
+<p>The event's <code>data</code> will contain the <code>elapsedTime</code>, <code>charIndex</code>, and <code>name</code> properties of the original DOM event instead of a copy of the event itself, as would be the case for DOM events converted in the usual way by JSSCxml.</p>
+
 </section>
 
 </section>
