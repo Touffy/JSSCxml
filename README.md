@@ -7,24 +7,32 @@ The name should be pronounced "JessieXML" or just "Jessie".
 
 It is distributed under a MIT license.
 
+Official website: [jsscxml.org](http://www.jsscxml.org/)
+
+
+### Main Features:
+
+- ECMAScript is the only supported datamodel
+- core algorithm is fully conformant
+- all executable content works as specified, except `<send>` in some cases (see below)
+- DOM Event I/O
+- [JavaScript API including events](http://www.jsscxml.org/api.html)
+- [`<fetch>` custom executable element](http://www.jsscxml.org/fetch.html)
+- [connection-like `invoke`](http://www.jsscxml.org/connect.html)
+- [speech synthesis extensions](http://www.jsscxml.org/speak.html)
+- pause/resume functionality (also pauses delayed events' and setTimeout timers)
+- [graphical debugger](http://www.jsscxml.org/viewer.html)
+- works in WebKit-based browsers
 
 ### Development status
+
+Latest version: [0.9.0](http://www.jsscxml.org/versions/SCxml_latest.zip)
+
+See the [version history and goals](http://www.jsscxml.org/dev.html).
 
 You can't `<send>` or receive remote events (of any type) with I/O Processors, but you can already use the included custom `<fetch>` and `<invoke type="event-stream">` elements to get similar results in a client-server fashion.
 
 As mentionned above, you can't `<send>` SCXML events over HTTP. But you can listen to remote events after invoking a connection with event-stream type.
-
-Current Features:
-
-- ECMAScript is the only supported datamodel
-- core algorithm is fully conformant with the stable parts of the spec
-- all executable content works as specified, except `<send>` in some cases (see above)
-- DOM interaction is fully supported
-- interpreter JavaScript API including events (documented in dom.html)
-- `<fetch>` custom executable element (see fetch.html for documentation)
-- connection-like invoke support (see connect.html for documentation)
-- pause/resume functionality (also pauses delayed events' and setTimeout timers)
-- works in WebKit-based browsers
 
 ### Known issues
 (that I'm not going to fix right now)
