@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- tests that <speak> works and generates the right events -->
+<scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:jssc="http://www.jsscxml.org" xml:lang="en-US">
+
+<state id="s0">
+	<onentry>
+		<jssc:speak text="If you hear this, Speech Synthesis works in Jessie XML!"/>
+	</onentry>
+	
+	<state id="silent">
+		<transition event="speak.start" target="speaking"/>
+	</state>
+	<state id="speaking">
+		<transition event="speak.end" target="french"/>
+	</state>
+</state>
+
+<state id="french">
+	<onentry>
+		<jssc:speak text="Si ce texte est prononcé sans accent anglais, l'attribut «XML langue» est bien compris" xml:lang="fr-FR"/>
+		<send delay="2s" event="shutup"/>
+	</onentry>
+	
+	<transition event="shutup" target="interrupt"/>
+</state>
+
+<state id="interrupt">
+	<datamodel>
+		<data id="sentence1" expr="'This utterance should be interrupted. If you hear this, it\'s not working.'"/>
+	</datamodel>
+	<state id="interrupt1">
+		<onentry>
+			<jssc:speak expr="sentence1"/>
+		</onentry>
+		
+		<transition event="speak.end">
+			<send delay="1s" event="shutup"/>
+		</transition>
+		<transition event="speak.start" target="interrupt2"/>
+	</state>
+
+	<state id="interrupt2">
+		<transition event="shutup">
+			<jssc:speak nomore="true"/>
+		</transition>
+		<transition event="error.execution.speak" target="pass"/>
+	</state>
+	
+	<transition event="speak.end" cond="_event.origin.text==sentence1 || _event.origin.text==sentence2" target="fail"/>
+</state>
+
+<final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
+<final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+
+</scxml>
