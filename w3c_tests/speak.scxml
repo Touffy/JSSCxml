@@ -42,7 +42,7 @@
 		<transition event="shutup">
 			<jssc:speak nomore="true"/>
 		</transition>
-		<transition event="error.execution.speak" target="pass"/>
+		<transition event="speak.error" target="pass"/>
 	</state>
 	
 	<transition event="speak.end" cond="_event.origin.text==sentence1 || _event.origin.text==sentence2" target="fail"/>
