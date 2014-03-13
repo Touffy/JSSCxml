@@ -25,7 +25,7 @@
 
 <section id="editor"><header>
 	<h2>SCXML Editor</h2>
-	<input name="load" type="button" value="Load source"> from <input name="src" placeholder="http://" type="url" value="w3c_tests/test405.scxml">
+	<form name="load"><input type="submit" value="Load source"> from <input type="radio" name="sourcetype" value="http" checked><input title="if this URL point outside the jsscxml.org domain, the response must include a CORS header allowing it to be used here" name="src" placeholder="http://" type="url" value="w3c_tests/test405.scxml"> or <input type="radio" name="sourcetype" value="file"><input name="file" type="file"></form>
 </header>
 
 </section>
@@ -35,22 +35,42 @@
 UI={
 	code:document.getElementsByTagName("textarea")[0],
 	parse:document.querySelector("input[name=parse]"),
-	load:document.querySelector("input[name=load]"),
+	load:document.querySelector("form[name=load]"),
 	src:document.querySelector("input[name=src]"),
+	file:document.querySelector("input[name=file]"),
 	
 	view:document.getElementById("editor")
 }
 
 sc=null
 
-UI.load.onclick=function(e)
+UI.src.onchange=function(e){
+	this.previousSibling.checked=true
+	UI.load.firstChild.disabled=!this.value
+}
+UI.file.onchange=function(e){
+	this.previousSibling.checked=true
+	UI.load.firstChild.disabled=!this.files[0]
+}
+
+UI.load.onsubmit=function(e)
 {
+	e.preventDefault()
 	if(sc){ sc.html.removeChild(sc.view.ui); sc.clean() }
+	if(UI.src.previousSibling.checked)
+		var src=UI.src.value
+	else
+		var src=UI.file.files[0]
 	var tag=UI.view.appendChild(document.createElement("scxml"))
 	tag.setAttribute("debug", true)
-	sc=new SCxml(UI.src.value, tag, null)
+	try{ sc=new SCxml(src, tag, null) }
+	catch(err){
+		UI.view.removeChild(tag)
+		throw err
+	}
 	new SCxml.View(sc)
 	sc.autoPauseBefore=SCxml.ALL_EVENTS
+	return false
 }
 
 
