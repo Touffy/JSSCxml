@@ -70,6 +70,15 @@ function SCxml(source, htmlContext, data, interpretASAP)
 
 	if(source instanceof Document)
 		setTimeout(function(sc, dom){ sc.interpret(dom) }, 0, this, source)
+	else if(('File' in window) && (source instanceof File))
+	{
+		this.name=source.name
+		var f=new FileReader()
+		f.sc=this
+		f.onload=SCxml.fileLoaded
+		f.onerror=SCxml.fileFailed
+		f.readAsText(source, "utf-8")
+	}
 	else if(/^\s*</.test(source))
 	{
 		var d=new DOMParser().parseFromString(source, "application/scxml+xml")
@@ -98,6 +107,16 @@ SCxml.parseSCXMLTags=function ()
 	for(var i=0; i<tags.length; i++) tags[i].interpreter
 		=new SCxml(tags[i].getAttribute("src"), tags[i], null, true)
 }
+
+// FileReader callbacks
+SCxml.fileLoaded=function(e)
+{
+	var sc=this.sc
+	delete this.sc
+	var d=new DOMParser().parseFromString(this.result, "application/scxml+xml")
+	sc.interpret(d)
+}
+SCxml.fileFailed=function(e){ delete this.sc }
 
 SCxml.prototype={
 
