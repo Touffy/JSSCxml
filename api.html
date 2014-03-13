@@ -35,7 +35,7 @@ article{
 <dl>
 	<dt><var>source</var></dt>
 	<dd>Required</dd>
-	<dd>Can be a URL, a Document or an SCXML source string. If it is a string starting with "&lt;", JSSC will try to interpret it as SCXML source code. If it is a URL string, JSSC will send an HTTP request to retrieve it, subject to the usual Cross-Domain restrictions. If <var>source</var> is an instance of Document, JSSC will simply use it (note that the Document itself, not a copy, will be used).</dd>
+	<dd>Can be a URL, a Document, a File or an SCXML source string. If it is a string starting with "&lt;", JSSC will try to interpret it as SCXML source code. If it is a URL string, JSSC will send an HTTP request to retrieve it, subject to the usual Cross-Domain restrictions. If <var>source</var> is an instance of Document, JSSC will simply use it (note that the Document itself, not a copy, will be used). If it is a <a href="http://www.w3.org/TR/FileAPI/#file">File</a>, JSSC will try to read it and parse it as SCXML source code.</dd>
 	
 	<dt><var>anchor</var></dt>
 	<dd>Default: special</dd>
