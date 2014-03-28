@@ -42,6 +42,10 @@ UI={
 	view:document.getElementById("editor")
 }
 
+quri=(quri=window.location.search)
+	&& (quri=quri.match(/src=([^&]+)/)[1])
+	&& (UI.src.value=quri=decodeURIComponent(quri))
+
 sc=null
 
 UI.src.onchange=function(e){
@@ -73,6 +77,7 @@ UI.load.onsubmit=function(e)
 	return false
 }
 
+if(quri) UI.load.dispatchEvent(new Event("submit"))
 
 </script>
 
