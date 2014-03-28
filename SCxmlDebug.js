@@ -406,7 +406,9 @@ drawTransition:function(t)
 	
 	for(var i=0; i<targets.length; i++) if(targets[i])
 	{
-		var target=targets[i].ui
+		if(targets[i].localName=="history") // <history> isn't drawn yet
+			var target=targets[i].parentNode.ui // so point to parent state
+		else var target=targets[i].ui
 		if(!t.offsetHeight && !target.offsetHeight) continue
 		for(; !target.offsetHeight; target=target.parentNode);
 		var dxl=target.offsetLeft-3
