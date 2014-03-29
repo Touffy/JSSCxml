@@ -321,6 +321,7 @@ SCxml.prototype={
 
 				// check that initial target exists
 				if(!this.inInvoke(state)){
+					state.executeAfterEntry=[]
 					if(state.hasAttribute('initial'))
 						this.checkTargets(state.getAttribute('initial'), state)
 				
@@ -472,9 +473,9 @@ SCxml.prototype={
 		if(parent.tagName!="state" && parent.tagName!="scxml")
 			return null
 		
-		if(parent.targets) return this.resolve(parent.targets)
-
-		var id, state
+		if(parent.targets)
+			return this.rememberHistory(this.resolve(parent.targets))
+		
 		if(parent.tagName=="state"
 		&& (state=this.dom.querySelector("[id="+getId(parent)+"] > initial")))
 		{
@@ -485,46 +486,56 @@ SCxml.prototype={
 				this.invokedReady()
 				throw this.name+": <initial> requires a <transition>."
 			}
-			parent.executeAfterEntry=trans
+			parent.executeAfterEntry=[trans]
 			if(trans.hasAttribute("targetexpr")) this.checkTargets(
 				this.expr(trans.getAttribute("targetexpr"), trans), trans)
-			return this.resolve(trans.targets)
+			return this.rememberHistory(this.resolve(trans.targets))
 		}
 		
-		state=parent.firstElementChild
+		var state=parent.firstElementChild
+
 		while(state && !(state.tagName in SCxml.STATE_ELEMENTS))
 			state=state.nextElementSibling
 		return state?[state]:null
 	},
 	
+	rememberHistory: function(states)
+	{
+		var remembered=[]
+		for(var i=0, state; state=states[i]; i++)
+		{
+			if(state.tagName=="history"){
+				if("record" in state)
+					remembered=remembered.concat(state.record)
+				else // use the transition by default
+				{
+					var trans=state.firstElementChild
+					while(trans && trans.tagName!="transition")
+						trans=trans.nextElementSibling
+					if(!trans){
+						this.invokedReady()
+						throw this.name+": <history> requires a default <transition>."
+					}
+					// transition content must be run after parent's onentry
+					// but before entering any children
+					state.parentNode.executeAfterEntry.push(trans)
+					remembered=remembered.concat(
+						this.rememberHistory(this.resolve(trans.targets)))
+				}
+			}
+			else remembered.push(state)
+		}
+		return remembered
+	},
+	
 	addStatesToEnter: function(states, lcca)
 	{
-	for(var i=0, state; state=states[i]; i++)
-	{
-		state.CA=false
-		if(state.tagName=="history")
+		states=this.rememberHistory(states)
+		for(var i=0, state; state=states[i]; i++)
 		{
-			var h
-			if("record" in state)
-				h=state.record
-			else // use the transition by default
-			{
-				var trans=state.firstElementChild
-				while(trans && trans.tagName!="transition")
-					trans=trans.nextElementSibling
-				if(!trans){
-					this.invokedReady()
-					throw this.name+": <history> requires a default <transition>."
-				}
-				// transition content must be run after parent's onentry
-				// but before entering any children
-				state.parentNode.executeAfterEntry=trans
-				h=this.resolve(trans.targets)
-			}
-			this.addStatesToEnter(h, lcca)
+			state.CA=false
+			this.statesToEnter=this.walkToEnter(state, this.statesToEnter, lcca)
 		}
-		else this.statesToEnter=this.walkToEnter(state, this.statesToEnter, lcca)
-	}
 	},
 	
 	walkToEnter: function(state, tree, lcca)
@@ -591,7 +602,7 @@ SCxml.prototype={
 	enterState: function(state)
 	{
 		var id=getId(state)
-		if(id in this.configuration){ delete state.executeAfterEntry; return }
+		if(id in this.configuration){ state.executeAfterEntry=[]; return }
 		this.configuration[id]=state
 		state.setAttribute("active",true)
 		
@@ -604,13 +615,8 @@ SCxml.prototype={
 		}
 
 		var onentry=this.dom.querySelectorAll("[id="+id+"] > onentry")
-		if(state.executeAfterEntry)
-		{
-			onentry[onentry.length]=state.executeAfterEntry
-			delete state.executeAfterEntry
-		}
-		for(var i=0; onentry[i]; i++)
-			try{this.execute(onentry[i])}
+		for(var i=0, ex; ex=onentry[i] || state.executeAfterEntry.shift(); i++)
+			try{this.execute(ex)}
 			catch(err){}
 		
 		state.fin=true
