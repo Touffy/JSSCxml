@@ -26,7 +26,7 @@ Official website: [jsscxml.org](http://www.jsscxml.org/)
 
 ### Development status
 
-Latest version: [0.9.0](http://www.jsscxml.org/versions/SCxml_latest.zip)
+Latest version: [0.9.1](http://www.jsscxml.org/versions/SCxml_latest.zip)
 
 See the [version history and goals](http://www.jsscxml.org/dev.html).
 
