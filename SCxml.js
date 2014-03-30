@@ -322,7 +322,9 @@ SCxml.prototype={
 				// check that initial target exists
 				if(!this.inInvoke(state)){
 					state.executeAfterEntry=[]
-					if(state.hasAttribute('initial'))
+					if(state.tagName=="parallel")
+						state.initial=[]
+					else if(state.hasAttribute('initial'))
 						this.checkTargets(state.getAttribute('initial'), state)
 				
 					if(this.obs && state.localName in this.obs)
@@ -537,18 +539,71 @@ SCxml.prototype={
 			this.statesToEnter=this.walkToEnter(state, this.statesToEnter, lcca)
 		}
 	},
+
+	// given a list of states, remove any state that has a child in the list
+	// (also removes duplicates)
+	reduceConfiguration: function(states)
+	{
+		var reduced=[]
+		there:for(var i=0, state; state=states[i]; i++){
+			for(var j=0, child; child=states[j]; j++)
+				if(state!=child && state.contains(child)) continue there
+			for(var j=0, other; other=reduced[j]; j++)
+				if(state==other) continue there
+			reduced.push(state)
+		}
+		return reduced
+	},
 	
+	// this is used when a state has initial substates that are not a
+	// direct child; if there is more than one initial, there MUST be
+	// a common parallel state between them and the original state,
+	// otherwise we'd have an illegal configuration.
+	walkUpFromCP: function(initials, path)
+	{
+		var top=path[path.length-1]
+		var CP=null
+		var initial=initials[0]
+		if(initial==top) return top
+		var up=initial
+		while((up=up.parentNode) && up != top)
+			if(up.tagName=="parallel") CP=up
+		if(CP && CP != initial) CP.initial=initials
+		var rpath=[up=CP||initial]
+		while((up=up.parentNode) && up != top){
+			rpath.push(up)
+			up.CA=false
+		}
+		return path.concat(rpath.reverse())
+	},
+
 	walkToEnter: function(state, tree, lcca)
 	{
-		var path=[]
+		var path=[state]
 		
 		var id=getId(state)
 
+		if(state.initial && state.initial.length) state.initial=[]
+		
+		// this means we have to aim for an ancestor's deep initial target
+		// before we use the normal algorithm
+		if(state.parentNode.initial && state.parentNode.initial.length){
+			var initials=state.parentNode.initial.filter(state.contains, state)
+			if(initials){
+				path=this.walkUpFromCP(initials, path)
+			}
+		}
+
 		// find the maximal simple path that includes the state
 		// and add/propagate the CA (Common Ancestor) property
-		path.push(state)
-		var down=state, up=state
-		while((down = this.firstState(down)) && (down = down[0])){
+		var down=path[path.length-1], up=state
+		while(down = this.firstState(down)){
+			if(down.length>1 || down[0].parentNode!=path[path.length-1]){
+				path=this.walkUpFromCP(this.reduceConfiguration(down), path)
+				down=path[path.length-1]
+				continue
+			}
+			down = down[0]
 			path.push(down)
 			down.CA=false
 		}
