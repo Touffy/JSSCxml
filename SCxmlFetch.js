@@ -100,6 +100,12 @@ exc.fetch=function(sc, element)
 	data=sc.readParams(element, data, true)
 	var headers={"Content-Type":exc._support_.mime[type]}
 	sc.readHeaders(element, headers)
+
+	if('object' == typeof data){
+		var def=false
+		for(var i in data) if(data.hasOwnProperty(i)){ def=true; break }
+		if(!def) data=""
+	}
 	
 	new exc._support_.Request(target, sc, event, headers, proc(data))
 }
