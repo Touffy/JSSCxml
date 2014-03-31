@@ -773,6 +773,7 @@ SCxml.prototype={
 	expr: function(s,el)
 	{
 		// TODO: check that the expr doesn't do horrible stuff
+		if(/^function/.test(s)) s="_x.__left__="+s
 		return this.datamodel.expr(s,el)
 	},
 	
@@ -854,7 +855,7 @@ SCxml.prototype={
 	{
 		if(!event) return event
 		if(event.data===null) event.data=undefined
-		if(!event.data) return event
+		if('object' != typeof event.data) return event
 		var def=false
 		for(var i in event.data) if(event.data.hasOwnProperty(i)){
 			def=true
