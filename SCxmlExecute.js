@@ -23,6 +23,12 @@ SCxml.prototype.assign=function(left, right)
 		this.datamodel._jsscxml_predefined_[left]=right
 	else this.datamodel[left]=right
 }
+SCxml.prototype.assign2=function(left, right, element)
+{
+	this.datamodel._x.__assignRight__=right
+	this.expr(left+" = _x.__assignRight__", element)
+	delete this.datamodel._x.__assignRight__
+}
 
 SCxml.prototype.readParams=function(element, data, alsoContent)
 {
@@ -56,18 +62,19 @@ SCxml.prototype.readContent=function(c)
 				value.namespaceURI, value.localName)
 			for(var c=value.firstChild; c; c=c.nextSibling)
 				tmp.documentElement.appendChild(tmp.importNode(c, true))
-		}else{
-			value=sc.dom.createDocumentFragment()
-			for(var c=element.firstChild; c; c=c.nextSibling)
-				value.appendChild(c.cloneNode(true))
+			return tmp
 		}
+		value=this.dom.createDocumentFragment()
+		for(var c=element.firstChild; c; c=c.nextSibling)
+			value.appendChild(c.cloneNode(true))
 		return value
 	}
 	if(value=c.textContent){	// JSON or normalized text content
-		try{ return JSON.parse(value) }
-		catch(err){ return value.replace(/^\s*|\s*$/g, "").replace(/\s+/g," ")}
+		var tmp=this.datamodel.syntexpr(value) // see if it is valid JS
+		if(tmp instanceof this.datamodel.SyntaxError)
+			tmp=value.replace(/^\s*|\s*$/g, "").replace(/\s+/g," ")
+		return tmp
 	}
-	return null
 }
 
 SCxml.parseTime=function (s)
@@ -197,7 +204,6 @@ SCxml.executableContent={
 	
 	data: function(sc, element)
 	{
-		var value=element.getAttribute("expr")
 		var id=element.getAttribute("id")
 		// create the variable first, so it's "declared"
 		// even if the assignment part fails or doesn't occur
@@ -205,39 +211,17 @@ SCxml.executableContent={
 			console.warn("Variable '"+id+"' is shadowing a predefined"
 			+ "window variable: please never delete it.\nin", element)
 		else sc.datamodel[id]=undefined
-		if(element.hasAttribute("expr")){
-			sc.expr(id+" = "+value, element)
-			return
-		}
 		if(element.hasAttribute("src"))
 			console.warn("You should use <fetch> instead of <data src>, which may render the interpreter unresponsive.")
-		else if(value=element.firstElementChild){ // XML content
-			if(value==element.lastElementChild){
-				var tmp=sc.dom.implementation.createDocument(
-					value.namespaceURI, value.localName)
-				for(var c=value.firstChild; c; c=c.nextSibling)
-					tmp.documentElement.appendChild(tmp.importNode(c, true))
-			}else{
-				value=sc.dom.createDocumentFragment()
-				for(var c=element.firstChild; c; c=c.nextSibling)
-					value.appendChild(c.cloneNode(true))
-			}
-			sc.assign(id, value)
-		}
-		else if(value=element.textContent){	// JS or normalized text content
-			var tmp=sc.datamodel.syntexpr(value) // see if it is valid JS
-			if(tmp instanceof sc.datamodel.SyntaxError)
-				tmp=value.replace(/^\s*|\s*$/g, "").replace(/\s+/g," ")
-			sc.assign(id, tmp)
-		}
+		else sc.assign(id, sc.readContent(element))
 	},
 	
 	assign: function(sc, element)
 	{
-		var value=element.getAttribute("expr")
 		var loc=element.getAttribute("location")
-		if(!loc) sc.error("syntax",element,new Error("'loc' attribute required"))
-		value=sc.expr(loc+" = "+value, element)
+		if(!loc) sc.error("syntax",element,new Error("'location' attribute required"))
+		value=sc.readContent(element)
+		sc.assign2(loc, value)
 		if(sc.expr(loc, element) != value)
 			sc.error("execution",element,new Error("cannot assign to read-only property"))
 	},
