@@ -674,11 +674,11 @@ SCxml.prototype={
 			try{this.execute(ex)}
 			catch(err){}
 		
-		state.fin=true
+		state.fin=false
 		if(state.tagName=="final"){
 			var c=this.dom.querySelector("[id="+id+"] > donedata")
-			if(c) try{this.donedata=this.readParams(c, {}, true)}
-				catch(err){ this.donedata=null }
+			if(c) try{state.parentNode.donedata=this.readParams(c, {}, true)}
+				catch(err){ state.parentNode.donedata=null }
 			return this.finalState(state.parentNode)
 		}
 		return true
@@ -691,19 +691,20 @@ SCxml.prototype={
 			this.running=false
 			this.stable=true
 			this.readyState=SCxml.FINISHED
-			this.html.dispatchEvent(new Event("finished"))
+			this.html.dispatchEvent(new CustomEvent("finished", {detail:state.donetata}))
 			return true
 		}
 		
 		if(state.tagName=="parallel")
 			for(var c=state.firstElementChild; c; c=c.nextElementSibling)
 				if(c.tagName in SCxml.STATE_ELEMENTS && !c.fin) return;
-		
 		state.fin=true
+		
 		var id=getId(state)
 		var doneEv=new SCxml.Event("done.state."+id)
-		doneEv.data=this.donedata
-		delete this.donedata
+		
+		doneEv.data=(state.tagName=="parallel")||state.donedata
+		delete state.donedata
 		this.html.dispatchEvent(new CustomEvent("queue", {detail:doneEv}))
 		this.internalQueue.push(doneEv)
 		if(state.parentNode.tagName=="parallel")
@@ -849,6 +850,20 @@ SCxml.prototype={
 		this.mainEventLoop()
 	},
 	
+	normalizeEmptyData: function(event)
+	{
+		if(!event) return event
+		if(event.data===null) event.data=undefined
+		if(!event.data) return event
+		var def=false
+		for(var i in event.data) if(event.data.hasOwnProperty(i)){
+			def=true
+			break
+		}
+		if(!def) event.data=undefined
+		return event
+	},
+	
 	macrostep: function()
 	{
 		while(this.running){
@@ -857,7 +872,7 @@ SCxml.prototype={
 			if(!trans.length){
 				// if none is enabled, consume internal events
 				var event
-				while(event=this.internalQueue.shift())
+				while(event=this.normalizeEmptyData(this.internalQueue.shift()))
 				{
 					this.lastEvent=event
 					this.html.dispatchEvent(new CustomEvent("consume", {detail:"internal"}))
@@ -875,7 +890,7 @@ SCxml.prototype={
 		this.stable=false
 		// consume external events
 		var event, trans
-		while(event=this.externalQueue.shift())
+		while(event=this.normalizeEmptyData(this.externalQueue.shift()))
 		{
 			this.lastEvent=event
 			if(event.invokeid && (event.invokeid in this.invoked)){

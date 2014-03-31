@@ -32,7 +32,7 @@ SCxml.prototype.macrostep=function()
 		if(!trans.length){
 			// if none is enabled, consume internal events
 			var event
-			while(event=this.internalQueue.shift())
+			while(event=this.normalizeEmptyData(this.internalQueue.shift()))
 			{
 				this.lastEvent=event
 				this.html.dispatchEvent(new CustomEvent("consume", {detail:"internal"}))
