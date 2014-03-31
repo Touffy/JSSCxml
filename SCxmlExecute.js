@@ -70,10 +70,8 @@ SCxml.prototype.readContent=function(c)
 		return value
 	}
 	if(value=c.textContent){	// JSON or normalized text content
-		var tmp=this.datamodel.syntexpr(value) // see if it is valid JS
-		if(tmp instanceof this.datamodel.SyntaxError)
-			tmp=value.replace(/^\s*|\s*$/g, "").replace(/\s+/g," ")
-		return tmp
+		try{return JSON.parse(value)} // see if it is valid JSON
+		catch(err){return value.replace(/^\s*|\s*$/g, "").replace(/\s+/g," ")}
 	}
 }
 
