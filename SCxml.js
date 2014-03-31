@@ -719,22 +719,17 @@ SCxml.prototype={
 		trans.internal=false
 		if(targets==null) return trans.lcca=null // targetless
 		trans.lcca=source
-		var ids=targets.map(function (e){
-				if(e.tagName=="history") e=e.parentNode
-				var id=getId(e)
-				return "state[id="+id+"], final[id="+id+"], parallel[id="+id+"]"})
-			.join(", ")
 		// determine transition type
 		// get Least Common Compound Ancestor
-		if(source.querySelectorAll(ids).length==targets.length
-		&& source.tagName!="parallel")
-			if(trans.internal=(trans.getAttribute("type")=="internal"))
-				return;
-		else while((trans.lcca=trans.lcca.parentNode)
-			.querySelectorAll(ids).length<targets.length );
-		if(!trans.internal && trans.lcca==source)
+		if(targets.every(source.contains, source) && targets.indexOf(source)<0)
+			if(source.tagName!="parallel" 
+			&& (trans.internal=(trans.getAttribute("type")=="internal")))
+				return
+		else while(!targets.every(trans.lcca.contains,
+			trans.lcca=trans.lcca.parentNode));
+		if(targets.indexOf(trans.lcca)>-1)
 			trans.lcca=trans.lcca.parentNode
-		for(var i=0, e; e=targets[i]; i++) if(e==trans.lcca)
+		if(!trans.internal && trans.lcca==source)
 			trans.lcca=trans.lcca.parentNode
 		while(trans.lcca.tagName=="parallel") trans.lcca=trans.lcca.parentNode
 	},
