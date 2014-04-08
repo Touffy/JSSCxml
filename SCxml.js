@@ -189,6 +189,9 @@ SCxml.prototype={
 			v.removeAttribute("willExit")
 		}
 		
+		var histories=this.dom.querySelectorAll("history")
+		for(var i=0, h; h=histories[i]; i++) delete h.record
+		
 		this.internalQueue=[]
 		this.externalQueue=[]
 		
