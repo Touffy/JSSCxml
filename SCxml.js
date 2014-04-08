@@ -722,12 +722,12 @@ SCxml.prototype={
 		trans.lcca=source
 		// determine transition type
 		// get Least Common Compound Ancestor
-		if(targets.every(source.contains, source) && targets.indexOf(source)<0)
+		if(targets.every(source.contains, source) && targets.indexOf(source)<0){
 			if(source.tagName!="parallel" 
 			&& (trans.internal=(trans.getAttribute("type")=="internal")))
 				return
-		else while(!targets.every(trans.lcca.contains,
-			trans.lcca=trans.lcca.parentNode));
+		}else do{trans.lcca=trans.lcca.parentNode}
+			while(!targets.every(trans.lcca.contains, trans.lcca))
 		if(targets.indexOf(trans.lcca)>-1)
 			trans.lcca=trans.lcca.parentNode
 		if(!trans.internal && trans.lcca==source)
