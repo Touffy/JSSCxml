@@ -81,7 +81,7 @@
 	box-shadow: 0px 1pt 3pt grey;
 	min-width: 3em;
 	width: auto;
-	-webkit-transition: background-color 0.7s ease-out 0;
+	transition: background-color 0.7s ease-out 0;
 	outline: 0 solid white;
 }
 invoke{
@@ -103,15 +103,15 @@ invoke{
 }
 .transition:hover, .transition.on{
 	border-color: #179fff;
-	background: -webkit-linear-gradient(rgba(255,255,255,0) 30%, #179fff 100%);
+	background: linear-gradient(rgba(255,255,255,0) 30%, #179fff 100%);
 }
 .transition.enabled{
 	border-color: green;
-	background: -webkit-linear-gradient(rgba(255,255,255,0) 30%, green 100%);
+	background: linear-gradient(rgba(255,255,255,0) 30%, green 100%);
 }
 .transition.enabled:hover, .transition.on.enabled{
 	border-color: lime;
-	background: -webkit-linear-gradient(rgba(255,255,255,0) 30%, lime 100%);
+	background: linear-gradient(rgba(255,255,255,0) 30%, lime 100%);
 }
 .transition code + * {
 	margin-left: 4pt;
