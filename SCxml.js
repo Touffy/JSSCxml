@@ -81,7 +81,7 @@ function SCxml(source, htmlContext, data, interpretASAP)
 	}
 	else if(/^\s*</.test(source))
 	{
-		var d=new DOMParser().parseFromString(source, "application/scxml+xml")
+		var d=new DOMParser().parseFromString(source, "application/xml")
 		setTimeout(function(sc, dom){ sc.interpret(dom) }, 0, this, d)
 	}
 	else
@@ -113,7 +113,7 @@ SCxml.fileLoaded=function(e)
 {
 	var sc=this.sc
 	delete this.sc
-	var d=new DOMParser().parseFromString(this.result, "application/scxml+xml")
+	var d=new DOMParser().parseFromString(this.result, "application/xml")
 	sc.interpret(d)
 }
 SCxml.fileFailed=function(e){ delete this.sc }
