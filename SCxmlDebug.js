@@ -13,13 +13,12 @@ SCxml.prototype.mainEventLoop=function()
 		if(this.paused) return;
 		if(!this.running) return this.terminate()
 		
-		if(this.invokeAll()) return; // because invocation is asynchronous
+		if(this.invokeAll() && this.internalQueue.length) continue
 		
 		this.stable=true
 		this.extEventLoop()
 		if(!this.running) return this.terminate()
 	}
-	this.invokedReady()
 }
 
 SCxml.prototype.macrostep=function()

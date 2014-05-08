@@ -16,19 +16,27 @@ They must be included along SCxml.js:
 
 xhr.js				wraps HTTP communication
 structures.js		some specific, optimized SCXML preprocessing
+delays.js			pauseable wrapper for delays, timeouts and intervals
 SCxmlProcessors.js	implements Event IO Processors
 SCxmlDatamodel.js	the datamodel wrapper iframe
 SCxmlEvent.js		authors may want to read that one
 SCxmlExecute.js		implements executable content
 SCxmlInvoke.js		contains most of the <invoke> implementation
+*SCxmlMutation.js	handles runtime SCXML DOM mutations
+*SCxmlFetch.js		makes XMLHttpRequests available to SCXML documents
+*SCxmlConnect.js	defines connection-like invoke and the event-stream type
+*SCxmlSpeak.js		a simple <speak> element around the SpeechSynthesis API
+**SCxmlDebug.js		allows pause/resume and graphical debugging and editing
 
-If you want <fetch> as well (you probably do), include this:
+Files marked with * are optional, you may build a smaller custom package by removing some of them from the command line in uglify.sh
 
-SCxmlFetch.js		makes XMLHttpRequests available to SCXML documents
+SCxmlDebug is optional and not bundled by default with the "ugly" distribution;
+It is recommended that you include the "pretty" files instead when debugging,
+so that you may see something readable if you use a JavaScript debugger.
 
 */
 
-// source can be a URI, an SCXML string or a parsed document
+// source can be a URI, an SCXML string, a parsed document or a File
 // data is an object whose properties will be copied into the datamodel
 function SCxml(source, htmlContext, data, interpretASAP)
 {
@@ -145,7 +153,6 @@ SCxml.prototype={
 
 		SCxml.sessions[this.sid]=null
 		
-		if(this.parent) delete this.parent
 		delete this.invoked
 	},
 	terminate: function()
@@ -171,7 +178,6 @@ SCxml.prototype={
 				"#_"+this.iid, 'scxml', this.iid, this.donedata))
 		delete this.donedata
 		this.sendNoMore=true
-		this.invokedReady()
 	},
 	
 	restart: function()
@@ -228,9 +234,8 @@ SCxml.prototype={
 	{
 		if(!this.parent) return;
 		this.parent.invoked[this.iid]=this
-		if(this.iid in this.parent.toInvoke.items 
-		&& !this.parent.toInvoke.remove(this.iid))
-			this.parent.mainEventLoop2()
+		if(this.iid in this.parent.toInvoke.items)
+			this.parent.toInvoke.remove(this.iid)
 	},
 
 	// XHR callbacks
@@ -435,6 +440,7 @@ SCxml.prototype={
 		this.running=true
 		this.readyState=SCxml.READY
 		this.html.dispatchEvent(new Event("ready"))
+		this.invokedReady()
 		if(this.interpretASAP) this.start()
 	},
 	
@@ -445,10 +451,8 @@ SCxml.prototype={
 		
 		var s=this.firstState(this.dom.documentElement)
 		// and... enter !
-		if(!s){
-			this.invokedReady()
+		if(!s)
 			throw this.name + " has no suitable initial state."
-		}
 		this.addStatesToEnter( s )
 		
 		this.readyState=SCxml.RUNNING
@@ -487,10 +491,8 @@ SCxml.prototype={
 			var trans=state.firstElementChild
 			while(trans && trans.tagName!="transition")
 				trans=trans.nextElementSibling
-			if(!trans){
-				this.invokedReady()
+			if(!trans)
 				throw this.name+": <initial> requires a <transition>."
-			}
 			parent.executeAfterEntry=[trans]
 			if(trans.hasAttribute("targetexpr")) this.checkTargets(
 				this.expr(trans.getAttribute("targetexpr"), trans), trans)
@@ -517,10 +519,7 @@ SCxml.prototype={
 					var trans=state.firstElementChild
 					while(trans && trans.tagName!="transition")
 						trans=trans.nextElementSibling
-					if(!trans){
-						this.invokedReady()
-						throw this.name+": <history> requires a default <transition>."
-					}
+					if(!trans) throw this.name+": <history> requires a default <transition>."
 					// transition content must be run after parent's onentry
 					// but before entering any children
 					state.parentNode.executeAfterEntry.push(trans)
@@ -833,25 +832,12 @@ SCxml.prototype={
 			this.macrostep()
 			if(!this.running) return this.terminate()
 			
-			if(this.invokeAll()) return; // because invocation is asynchronous
+			if(this.invokeAll() && this.internalQueue.length) continue
 			
 			this.stable=true
 			this.extEventLoop()
 			if(!this.running) return this.terminate()
 		}
-		this.invokedReady()
-	},
-	
-	// this is called if there were states to invoke in the main loop
-	mainEventLoop2: function()
-	{
-		if(this.internalQueue.length) return this.mainEventLoop()
-		// macrostep completed and invocation errors handled
-		
-		this.stable=true
-		this.extEventLoop()
-		if(!this.running) return this.terminate()
-		this.mainEventLoop()
 	},
 	
 	normalizeEmptyData: function(event)
