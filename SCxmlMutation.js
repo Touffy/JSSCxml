@@ -60,7 +60,7 @@ SCxml.mutations={
 			switch(mutations[i].attributeName){
 			case "initial":
 				obs.sc.checkTargets(e.getAttribute("initial"), e)
-				// TODO: draw initial arrow (whenever that is implemented…)
+				obs.sc.view.drawTransition(e.ui)
 				break
 			case "id":
 				// TODO: check that the new id is not already in use
@@ -76,6 +76,15 @@ SCxml.mutations={
 				case "state":
 				case "parallel":
 				case "final":
+					obs.sc.newTarget(newChild)
+					if(e.getAttribute("active") && SCxml.subStates(e).length==1)
+					{
+						obs.sc.addStatesToEnter(newChild, newChild.parentNode)
+						obs.sc.html.dispatchEvent(new CustomEvent("enter", {detail:
+						{list: obs.sc.statesToEnter.inEntryOrder()
+							.filter(obs.sc.enterState,obs.sc).map(getId)} }))
+					}
+					break
 				case "history":
 					obs.sc.newTarget(newChild)
 					break
@@ -104,6 +113,15 @@ SCxml.mutations={
 				case "state":
 				case "parallel":
 				case "final":
+					obs.sc.newTarget(newChild)
+					if(e.getAttribute("active"))
+					{
+						obs.sc.addStatesToEnter(newChild, newChild.parentNode)
+						obs.sc.html.dispatchEvent(new CustomEvent("enter", {detail:
+						{list: obs.sc.statesToEnter.inEntryOrder()
+							.filter(obs.sc.enterState,obs.sc).map(getId)} }))
+					}
+					break
 				case "history":
 					obs.sc.newTarget(newChild)
 					break
@@ -148,12 +166,19 @@ SCxml.mutations={
 SCxml.prototype.newTarget=function(s)
 {
 	var newId=s.getAttribute("id")
+	s.executeAfterEntry=[]
+	if(s.tagName=="parallel") s.initial=[]
+	else if(s.hasAttribute('initial'))
+		this.checkTargets(s.getAttribute('initial'), s)
+	if(this.obs && s.localName in this.obs)
+		this.obs[s.localName].observe(s, SCxml.observerOptions[s.localName])
+
 	if(this.view)
 		s.parentNode.ui.appendChild(this.view.convertNode(s))
 	if(newId in this.missingTargets){
-		for(var i=0, t; t=this.missingTargets[newId][i]; i++){
-			t.targets.add(s._JSSCID)
-			if(t.ui) this.view.drawTransition(t.ui)
+		for(var t in this.missingTargets[newId].items){
+			this.JSSCID[t].targets.add(s._JSSCID)
+			if(this.JSSCID[t].ui) this.view.drawTransition(this.JSSCID[t].ui)
 		}
 		this.targets[newId]=this.missingTargets[newId]
 		delete this.missingTargets[newId]
@@ -163,18 +188,19 @@ SCxml.prototype.newTarget=function(s)
 SCxml.prototype.renameTarget=function(oldId, s)
 {
 	var newId=s.getAttribute("id")
+	if(s.ui) s.ui.setAttribute("scid", newId)
 	if(oldId in this.targets){
-		for(var i=0, t; t=this.targets[oldId][i]; i++){
-			t.targets.remove(s._JSSCID)
-			if(t.ui) this.view.drawTransition(t.ui)
+		for(var t in this.targets[oldId].items){
+			this.JSSCID[t].targets.remove(s._JSSCID)
+			if(this.JSSCID[t].ui) this.view.drawTransition(this.JSSCID[t].ui)
 		}
 		this.missingTargets[oldId]=this.targets[oldId]
 		delete this.targets[oldId]
 	}
 	if(newId in this.missingTargets){
-		for(var i=0, t; t=this.missingTargets[newId][i]; i++){
-			t.targets.add(s._JSSCID)
-			if(t.ui) this.view.drawTransition(t.ui)
+		for(t in this.missingTargets[newId].items){
+			this.JSSCID[t].targets.add(s._JSSCID)
+			if(this.JSSCID[t].ui) this.view.drawTransition(this.JSSCID[t].ui)
 		}
 		this.targets[newId]=this.missingTargets[newId]
 		delete this.missingTargets[newId]

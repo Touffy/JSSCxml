@@ -186,6 +186,8 @@ svg{
 #arrow{ fill: #0f3a98; }
 #arrowOn{ fill: #179fff; }
 #arrowOnEnabled{ fill: lime; }
+#arrowIni{ fill: #ff14e3; }
+
 scxml path{
 	pointer-events: visibleStroke;
 	fill: none;
@@ -203,4 +205,12 @@ scxml path.enabled{
 scxml path.enabled:hover, scxml path.on.enabled{
 	marker-end: url(#arrowOnEnabled);
 	stroke: lime;
+}
+
+scxml path.ini, scxml path.ini:hover{
+	pointer-events: visibleStroke;
+	fill: none;
+	stroke: #ff14e3;
+	stroke-width: 2;
+	marker-end: url(#arrowIni);
 }

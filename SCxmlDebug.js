@@ -314,6 +314,8 @@ SCxml.View.createUI=function()
 			}
 			firstChild.appendChild(firstChild.firstChild.cloneNode(true))
 				.setAttributeNS(null, "id", "arrowOn")
+			firstChild.appendChild(firstChild.firstChild.cloneNode(true))
+				.setAttributeNS(null, "id", "arrowIni")
 /*			firstChild.appendChild(firstChild.firstChild.cloneNode(true))
 				.setAttributeNS(null, "id", "arrowEnabled")
 			firstChild.appendChild(firstChild.firstChild.cloneNode(true))
@@ -397,11 +399,16 @@ drawTransition:function(t)
 	if(!scT.targets || !scT.targets.length) return
 	
 	var targets=this.sc.resolve(scT.targets)
+	var ini= scT.parentNode.localName=="initial" || scT.localName!="transition"
 	
 	for(var o=t; !o.offsetHeight; o=o.parentNode);
 	var oxl=+o.offsetLeft
 	var oxr=+o.offsetLeft+o.offsetWidth-1
 	var oy=+o.offsetTop+o.offsetHeight-2
+	if(ini){
+		oxr=oxl
+		oy=+o.offsetTop+24
+	}
 	
 	for(var i=0; i<targets.length; i++) if(targets[i])
 	{
@@ -433,6 +440,7 @@ drawTransition:function(t)
 		var path = document.createElementNS("http://www.w3.org/2000/svg","path")
 		path.setAttributeNS(null,"d",d)
 		path.from=t
+		if(ini) path.className="ini"
 		t.arrows.push(this.ui.arrows.appendChild(path))
 	}
 	this.opacityArrows(t)
@@ -441,6 +449,9 @@ drawTransition:function(t)
 allArrows:function()
 {
 	var targets=this.ui.querySelectorAll(".transition")
+	for(var i=0; i<targets.length; i++)
+		this.drawTransition(targets[i])
+	var targets=this.ui.querySelectorAll(".state")
 	for(var i=0; i<targets.length; i++)
 		this.drawTransition(targets[i])
 },
@@ -557,7 +568,7 @@ convertSCXML:function(){
 
 getBySCId:function(id)
 {
-	return this.ui.querySelector("[scid="+id+"]")
+	return this.ui.querySelector("[scid='"+id+"']")
 },
 
 enter:function(id)
