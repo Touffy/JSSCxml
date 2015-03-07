@@ -115,6 +115,7 @@ SCxml.View.init=function(e){
 	var sc=e.target.interpreter
 	sc.view.convertSCXML()
 	sc.view.ui.arrows.style.width=+sc.view.ui.sc.parentNode.offsetWidth+20+"px"
+	sc.view.ui.arrows.style.height=+sc.view.ui.sc.parentNode.offsetHeight+10+"px"
 	sc.view.allArrows()
 	
 	this.addEventListener("ready", SCxml.View.onready, true)
@@ -136,6 +137,7 @@ SCxml.View.onready=function(e){
 }
 SCxml.View.redraw=function(v){
 	v.ui.arrows.style.width=+v.ui.sc.parentNode.offsetWidth+20+"px"
+	v.ui.arrows.style.height=+v.ui.sc.parentNode.offsetHeight+10+"px"
 	v.allArrows()
 }
 SCxml.View.onexit=function(e){
@@ -295,6 +297,18 @@ SCxml.View.createUI=function()
 	}
 
 	var t=UI.createTBody().insertRow()
+	
+	with(t.insertCell()){
+		className="queue"
+		appendChild(document.createElement("h2")).textContent="internal queue"
+		UI.intQ=appendChild(document.createElement("ol"))
+	}
+	with(t.insertCell()){
+		className="queue"
+		appendChild(document.createElement("h2")).textContent="external queue"
+		UI.extQ=appendChild(document.createElement("ol"))
+	}
+	
 	with(t.insertCell()){
 		var svgns="http://www.w3.org/2000/svg"
 		with(UI.arrows=appendChild(document.createElementNS(svgns, "svg"))){
@@ -324,17 +338,6 @@ SCxml.View.createUI=function()
 		;(UI.sc=appendChild(document.createElement("div"))).className="sc"
 	}
 
-	with(t.insertCell()){
-		className="queue"
-		appendChild(document.createElement("h2")).textContent="external queue"
-		UI.extQ=appendChild(document.createElement("ol"))
-	}
-	with(t.insertCell()){
-		className="queue"
-		appendChild(document.createElement("h2")).textContent="internal queue"
-		UI.intQ=appendChild(document.createElement("ol"))
-	}
-	
 	UI.arrows.addEventListener("mouseover", SCxml.View.hoverArrow, true)
 	UI.arrows.addEventListener("mouseout", SCxml.View.hoverArrow, true)
 	UI.sc.addEventListener("click", SCxml.View.toggle, true)
