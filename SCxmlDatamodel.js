@@ -39,15 +39,15 @@ SCxml.prototype.initIframe=function (data)
 	this.datamodel._jsscxml_predefined_={}
 	for(var i in this.datamodel) if(this.datamodel.hasOwnProperty(i))
 		this.datamodel._jsscxml_predefined_[i]=undefined
-	 
-	this.datamodel.__defineGetter__("_sessionid", function(){return this._sc.sid})
-	this.datamodel.__defineSetter__("_sessionid", function(){return this._sc.sid})
-	this.datamodel.__defineGetter__("_event", function(){
-		return this._sc.lastEvent})
-	this.datamodel.__defineSetter__("_event", function(){
-		return this._sc.lastEvent})
-	this.datamodel.__defineGetter__("_name", function(){return this._sc.name})
-	this.datamodel.__defineSetter__("_name", function(){return this._sc.name})
+	
+	with(this){
+		datamodel.__defineGetter__("_sessionid", function(){return sid})
+		datamodel.__defineSetter__("_sessionid", function(){return sid})
+		datamodel.__defineGetter__("_event", function(){return lastEvent})
+		datamodel.__defineSetter__("_event", function(){return lastEvent})
+		datamodel.__defineGetter__("_name", function(){return name})
+		datamodel.__defineSetter__("_name", function(){return name})
+	}
 	this.datamodel.__defineGetter__("_ioprocessors", function(){
 		return SCxml.EventProcessors })
 	this.datamodel.__defineSetter__("_ioprocessors", function(){
