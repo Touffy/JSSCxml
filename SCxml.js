@@ -486,7 +486,7 @@ SCxml.prototype={
 			return this.rememberHistory(this.resolve(parent.targets))
 		
 		if(parent.tagName=="state"
-		&& (state=this.dom.querySelector("[id="+getId(parent)+"] > initial")))
+		&& (state=SCxml.childOfType(parent, "initial")))
 		{
 			var trans=state.firstElementChild
 			while(trans && trans.tagName!="transition")
@@ -665,20 +665,20 @@ SCxml.prototype={
 		
 		var dm
 		if(this.lateBinding
-		&& (dm=this.dom.querySelector("[id="+id+"] > datamodel"))
+		&& (dm=SCxml.childOfType(state, "datamodel"))
 		&& ('unbound' in dm)){
 			delete dm.unbound
 			try{this.execute(dm)} catch(err){}
 		}
 
-		var onentry=this.dom.querySelectorAll("[id="+id+"] > onentry")
+		var onentry=SCxml.childrenOfType(state, "onentry")
 		for(var i=0, ex; ex=onentry[i] || state.executeAfterEntry.shift(); i++)
 			try{this.execute(ex)}
 			catch(err){}
 		
 		state.fin=false
 		if(state.tagName=="final"){
-			var c=this.dom.querySelector("[id="+id+"] > donedata")
+			var c=SCxml.childOfType(state, "donedata")
 			if(c) try{state.parentNode.donedata=this.readParams(c, {}, true)}
 				catch(err){ state.parentNode.donedata=null }
 			return this.finalState(state.parentNode)
@@ -742,7 +742,7 @@ SCxml.prototype={
 		var id=getId(state)
 		if(!(id in this.configuration)) return;
 		
-		var histories=this.dom.querySelectorAll("[id="+id+"] > history")
+		var histories=SCxml.childrenOfType(state, "history")
 		for(var i=0, h; h=histories[i]; i++)
 		h.record=this.activeChildren(state, h.getAttribute("type")=="deep")
 	},
@@ -756,12 +756,12 @@ SCxml.prototype={
 		
 		state.removeAttribute("willExit")
 		
-		var onexit=this.dom.querySelectorAll("[id="+id+"] > onexit")
+		var onexit=SCxml.childrenOfType(state, "onexit")
 		for(var i=0; i<onexit.length; i++)
 			try{this.execute(onexit[i])}
 			catch(err){}
 		
-		var invoked=this.dom.querySelectorAll("[id="+id+"] > invoke")
+		var invoked=SCxml.childrenOfType(state, "invoke")
 		for(i=0; i<invoked.length; i++)
 			this.cancelInvoke(getId(invoked[i]))
 
@@ -1058,3 +1058,20 @@ SCxml.activeStateFilter={acceptNode: function(node)
 		return 2
 	return 1
 }}
+
+SCxml.subStates=function (s){
+	for(var ss=[], c=s.firstElementChild; c; c=c.nextElementSibling)
+		if(c.localName in SCxml.STATE_ELEMENTS) ss.push(c)
+	return ss
+}
+SCxml.childOfType=function (s, name){
+	for(var c=s.firstElementChild; c; c=c.nextElementSibling)
+		if(c.localName == name) return c
+	return null
+}
+SCxml.childrenOfType=function (s, name){
+	for(var ct=[], c=s.firstElementChild; c; c=c.nextElementSibling)
+		if(c.localName == name) ct.push(c)
+	return ct
+}
+
