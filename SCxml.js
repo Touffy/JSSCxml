@@ -228,8 +228,7 @@ SCxml.prototype={
 	toString: function(){ return "SCxml("+this.name+")" },
 	constructor: SCxml,
 	
-	// tell parent that we're ready and resume its mainEventLoop
-	// if all other invoked sessions are also ready
+	// tell parent that we're ready
 	invokedReady: function()
 	{
 		if(!this.parent) return;
