@@ -19,7 +19,7 @@ SCxml.prototype.invokeAll=function()
 	for(var i=0; i<invs.length; i++){
 		try{ this.invoke(invs[i]) } catch(err){}
 	}
-	return this.toInvoke.length
+	return this.toInvoke.size
 }
 SCxml.prototype.cancelInvoke=function(inv)
 {
@@ -31,7 +31,7 @@ SCxml.prototype.cancelInvoke=function(inv)
 SCxml.prototype.invoke=function(inv)
 {
 	var id=getId(inv), loc
-	if(id in this.invoked || id in this.toInvoke.items) return;
+	if(id in this.invoked || this.toInvoke.has(id)) return
 	
 	if(loc=inv.getAttribute("idlocation"))
 		this.expr(loc+'="'+id+'"')

@@ -399,7 +399,7 @@ drawTransition:function(t)
 {
 	this.clearArrows(t)
 	var scT=this.sc.JSSCID[t._JSSCID]
-	if(!scT.targets || !scT.targets.length) return
+	if(!scT.targets || !scT.targets.size) return
 	
 	var targets=this.sc.resolve(scT.targets)
 	var ini= scT.parentNode.localName=="initial" || scT.localName!="transition"

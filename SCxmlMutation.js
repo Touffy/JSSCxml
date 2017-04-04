@@ -143,15 +143,15 @@ SCxml.mutations={
 				break
 			case "target":
 			case "targetexpr":
-				var oldTargets
+				var oldTargets=e.targets
 				// clear targets' reverse links
-				if(oldTargets=e.targets && obs.sc.resolve(e.targets))
+				if(oldTargets && oldTargets.size && obs.sc.resolve(oldTargets))
 					for(var j=0, t; t=oldTargets[j]; j++)
-						obs.sc.targets[t.getAttribute("id")].remove(e._JSSCID)
+						obs.sc.targets[t.getAttribute("id")].delete(e._JSSCID)
 				var expr=false
 				// maybe recompute target set and reverse
 				if(!e.getAttribute("target")){
-					e.targets=""
+					e.targets=new Set()
 					if(e.ui) obs.sc.view.clearArrows(e.ui)
 					expr=!!e.getAttribute("targetexpr")
 				} else {
@@ -176,7 +176,7 @@ SCxml.prototype.newTarget=function(s)
 	if(this.view)
 		s.parentNode.ui.appendChild(this.view.convertNode(s))
 	if(newId in this.missingTargets){
-		for(var t in this.missingTargets[newId].items){
+		for(let t of this.missingTargets[newId]){
 			this.JSSCID[t].targets.add(s._JSSCID)
 			if(this.JSSCID[t].ui) this.view.drawTransition(this.JSSCID[t].ui)
 		}
@@ -190,15 +190,15 @@ SCxml.prototype.renameTarget=function(oldId, s)
 	var newId=s.getAttribute("id")
 	if(s.ui) s.ui.setAttribute("scid", newId)
 	if(oldId in this.targets){
-		for(var t in this.targets[oldId].items){
-			this.JSSCID[t].targets.remove(s._JSSCID)
+		for(let t of this.targets[oldId]){
+			this.JSSCID[t].targets.delete(s._JSSCID)
 			if(this.JSSCID[t].ui) this.view.drawTransition(this.JSSCID[t].ui)
 		}
 		this.missingTargets[oldId]=this.targets[oldId]
 		delete this.targets[oldId]
 	}
 	if(newId in this.missingTargets){
-		for(t in this.missingTargets[newId].items){
+		for(let t of this.missingTargets[newId]){
 			this.JSSCID[t].targets.add(s._JSSCID)
 			if(this.JSSCID[t].ui) this.view.drawTransition(this.JSSCID[t].ui)
 		}

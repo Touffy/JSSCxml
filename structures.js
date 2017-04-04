@@ -1,38 +1,3 @@
-/*	Set :
-	a simple set object that counts its members, unlike regular objects
-*/
-
-function Set()
-{
-	this.items={}
-	this.length=0
-	
-	if(arguments.length) this.add.apply(this, arguments)
-}
-Set.prototype.add=function ()
-{
-	for(var i=0; i<arguments.length; i++)
-	{
-		var s=arguments[i]
-		if(s in this.items) continue
-		this.items[s]=true
-		this.length++
-	}
-	return this.length
-}
-Set.prototype.remove=function ()
-{
-	for(var i=0; i<arguments.length; i++)
-	{
-		var s=arguments[i]
-		if(!(s in this.items)) continue
-		delete this.items[s]
-		this.length--
-	}
-	return this.length
-}
-
-
 /* CompiledPath :
 is a maximal path (each state has exactly one child)
 
@@ -143,7 +108,7 @@ CompiledTree.prototype.select=function(test)
 	if(!allChildrenEnabled){
 		var t
 		for(var p=this.root.path, i=p.length-1; i>=0; i--) if(t=test(p[i])){
-			if(!t.targets)
+			if(!t.targets || !t.targets.size)
 				enabled.push(t)
 			else{
 				if(enabledTargetedTransition) break

@@ -204,7 +204,7 @@ SCxml.prototype={
 		this.configuration={}
 		this.statesToEnter=null
 		this.invoked={}
-		this.toInvoke=new Set()
+		this.toInvoke.clear()
 		this.lastEvent=undefined
 		
 		this.sendNoMore=false
@@ -231,10 +231,10 @@ SCxml.prototype={
 	// tell parent that we're ready
 	invokedReady: function()
 	{
-		if(!this.parent) return;
-		this.parent.invoked[this.iid]=this
-		if(this.iid in this.parent.toInvoke.items)
-			this.parent.toInvoke.remove(this.iid)
+		if(this.parent){
+			this.parent.invoked[this.iid]=this
+			this.parent.toInvoke.delete(this.iid)
+		}
 	},
 
 	// XHR callbacks
@@ -246,7 +246,7 @@ SCxml.prototype={
 		// when an XHR fails: no need to throw another on top
 	},
 	
-	// checks all targets for an element;
+	// checks all targets for an element
 	checkTargets: function(target, element)
 	{
 		element.targets=new Set()
@@ -255,16 +255,15 @@ SCxml.prototype={
 			// target exists; add to targets set and reverse target list
 				element.targets.add(r._JSSCID)
 				if(t in this.targets) this.targets[t].add(element._JSSCID)
-				else this.targets[t]=new Set(element._JSSCID)
+				else this.targets[t]=new Set([element._JSSCID])
 			}
 			else{
 			// target does not exists; add to reverse missing target list
 				if(t in this.missingTargets)
 					this.missingTargets[t].add(element._JSSCID)
-				else this.missingTargets[t]=new Set(element._JSSCID)
+				else this.missingTargets[t]=new Set([element._JSSCID])
 			}
 		}
-		if(!element.targets.length) element.targets=""
 	},
 
 	validate: function ()
@@ -287,12 +286,12 @@ SCxml.prototype={
 			&& getAttribute("binding") != "late")
 				console.warn("binding='"+getAttribute("binding")+"' in"
 				+ this.dom.documentURI +" is not valid")
-			this.lateBinding=(getAttribute("binding")=="late")
+			this.lateBinding=getAttribute("binding")=="late"
 			if(hasAttribute("name")) this.name=getAttribute("name")
 		}
 		
-		this.missingTargets={} // {missing target ID : [source JSSCIDs]}
-		this.targets={} // {existing state ID : [source JSSCIDs]}
+		this.missingTargets={} // {missing target ID : Set(source JSSCIDs)}
+		this.targets={} // {existing state ID : Set(source JSSCIDs)}
 		this.JSSCID={} // {JSSCID : DOM element}
 		this.lastJSSCID=1
 		
@@ -352,8 +351,6 @@ SCxml.prototype={
 				if(!this.inInvoke(tr)){
 					if(tr.hasAttribute('target'))
 						this.checkTargets(tr.getAttribute('target'), tr)
-					else tr.targets=""
-					
 					if(this.obs) this.obs.transition
 						.observe(tr, SCxml.observerOptions.transition)
 				}
@@ -466,12 +463,9 @@ SCxml.prototype={
 	
 	resolve: function(a)
 	{
-		if(a instanceof Set){
-			var b=[]
-			for(var i in a.items) b.push(this.JSSCID[i])
-			return b
-		}
-		else return this.JSSCID[a]
+		if(a instanceof Set)
+			return Array.from(a).map(id => this.JSSCID[id])
+		return this.JSSCID[a]
 	},
 	
 	// find the initial state in the document or in a <state>;
@@ -481,7 +475,7 @@ SCxml.prototype={
 		if(parent.tagName!="state" && parent.tagName!="scxml")
 			return null
 		
-		if(parent.targets)
+		if(parent.targets && parent.targets.size)
 			return this.rememberHistory(this.resolve(parent.targets))
 		
 		if(parent.tagName=="state"
@@ -911,12 +905,12 @@ SCxml.prototype={
 		for(var i=0, t; t=trans[i]; i++)
 		{
 			// preemtion, part II
-			if(t.parentElement.getAttribute("willExit") && t.targets.length){
+			if(t.parentElement.getAttribute("willExit") && t.targets.size){
 				trans.splice(i--,1)
 				continue
 			}
 			this.findLCCA(t)
-			if(!t.targets.length) continue
+			if(!t.targets.size) continue
 			
 			var s=this.dom.createNodeIterator(t.lcca,
 				NodeFilter.SHOW_ELEMENT, SCxml.activeStateFilter)
@@ -954,7 +948,7 @@ SCxml.prototype={
 		var currentConf=this.statesToEnter
 		this.statesToEnter=null
 		// then enter all the states to enter
-		for(i=0; t=this.transitionsToTake[i]; i++) if(t.targets.length)
+		for(i=0; t=this.transitionsToTake[i]; i++) if(t.targets.size)
 			this.addStatesToEnter(this.resolve(t.targets), t.lcca)
 		if(this.statesToEnter)
 			this.html.dispatchEvent(new CustomEvent("enter", {detail:{list:
