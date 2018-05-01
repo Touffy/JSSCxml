@@ -7,7 +7,7 @@ The name should be pronounced "JessieXML" or just "Jessie".
 
 It is distributed under a MIT license.
 
-Official website: [jsscxml.org](http://www.jsscxml.org/)
+Official website: [jsscxml.org](https://jsscxml.org/)
 
 
 ### Main Features:
@@ -16,19 +16,19 @@ Official website: [jsscxml.org](http://www.jsscxml.org/)
 - core algorithm is fully conformant
 - all executable content works as specified, except `<send>` in some cases (see below)
 - DOM Event I/O
-- [JavaScript API including events](http://www.jsscxml.org/api.html)
-- [`<fetch>` custom executable element](http://www.jsscxml.org/fetch.html)
-- [connection-like `invoke`](http://www.jsscxml.org/connect.html)
-- [speech synthesis extensions](http://www.jsscxml.org/speak.html)
+- [JavaScript API including events](https://jsscxml.org/api.html)
+- [`<fetch>` custom executable element](https://jsscxml.org/fetch.html)
+- [connection-like `invoke`](https://jsscxml.org/connect.html)
+- [speech synthesis extensions](https://jsscxml.org/speak.html)
 - pause/resume functionality (also pauses delayed events' and setTimeout timers)
-- [graphical debugger](http://www.jsscxml.org/viewer.html)
+- [graphical debugger](https://jsscxml.org/viewer.html)
 - works in WebKit-based browsers
 
 ### Development status
 
-Latest version: [0.9.1](http://www.jsscxml.org/versions/SCxml_latest.zip)
+Latest version: [0.9.1](https://jsscxml.org/versions/SCxml_latest.zip)
 
-See the [version history and goals](http://www.jsscxml.org/dev.html).
+See the [version history and goals](https://jsscxml.org/dev.html).
 
 You can't `<send>` or receive remote events (of any type) with I/O Processors, but you can already use the included custom `<fetch>` and `<invoke type="event-stream">` elements to get similar results in a client-server fashion.
 
